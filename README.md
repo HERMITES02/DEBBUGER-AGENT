@@ -76,42 +76,63 @@ User input (code + image + log + text)
 
 ```
 debug-agent/
-├── backend/                  # Dev 2 — FastAPI + agents
+│
+├── shared/                                   # SHARED — both devs import from here
+│   └── schemas.py                            # DebugRequest, AgentMessage, DebugResult
+│
+├── backend/                                  # Dev 2 — FastAPI + action agents
 │   ├── app/
-│   │   ├── main.py           # FastAPI app, /debug endpoint, WebSocket
-│   │   └── schemas.py        # DebugRequest, AgentMessage, DebugResult
+│   │   └── main.py                           # FastAPI app, /debug endpoint, WebSocket
+│   │
 │   ├── agents/
-│   │   ├── orchestrator.py   # LangGraph ReAct loop
-│   │   ├── search_agent.py   # Web search + Stack Overflow
-│   │   ├── patch_agent.py    # Code fix generation + diff
-│   │   ├── test_agent.py     # Test generation + execution
-│   │   └── file_agent.py     # FilePatch builder for VS Code
+│   │   ├── orchestrator.py                   # LangGraph ReAct loop
+│   │   ├── search_agent.py                   # Web search + Stack Overflow
+│   │   ├── patch_agent.py                    # Code fix generation + diff
+│   │   ├── test_agent.py                     # Test generation + execution
+│   │   └── file_agent.py                     # FilePatch builder for VS Code
+│   │
 │   ├── tools/
-│   │   ├── sandbox.py        # E2B code executor
-│   │   ├── git_ops.py        # gitpython blame, log, apply patch
-│   │   └── diff_engine.py    # Unified diff parser
+│   │   ├── sandbox.py                        # E2B code executor
+│   │   ├── git_ops.py                        # gitpython blame, log, apply patch
+│   │   └── diff_engine.py                    # Unified diff parser
+│   │
 │   ├── tests/
 │   ├── docker-compose.yml
 │   ├── requirements.txt
 │   └── .env.example
 │
-├── frontend/                 # Dev 1 — Next.js web app
+├── perception/                               # Dev 1 — perception layer (NEW)
+│   ├── agents/
+│   │   ├── vision_agent.py                   # Claude Vision API — reads screenshots
+│   │   ├── code_analysis_agent.py            # tree-sitter AST + Ruff/ESLint linting
+│   │   └── context_builder.py                # assembles final prompt from all inputs
+│   │
+│   ├── router/
+│   │   └── input_router.py                   # classifies inputs, strips ANSI, encodes images
+│   │
+│   ├── memory/
+│   │   └── vector_store.py                   # Chroma DB — session memory + retrieval
+│   │
+│   └── requirements.txt                      # perception layer Python deps
+│
+├── frontend/                                 # Dev 1 — Next.js web app
 │   ├── app/
 │   ├── components/
-│   │   ├── ChatInput.tsx      # File + image drop zone
-│   │   ├── DiffViewer.tsx     # Before/after code patch
-│   │   └── AgentLog.tsx       # Live agent activity stream
+│   │   ├── ChatInput.tsx                     # file + image drop zone
+│   │   ├── DiffViewer.tsx                    # before/after code patch viewer
+│   │   └── AgentLog.tsx                      # live agent activity stream
 │   └── package.json
 │
-└── extension/                # Dev 1 — VS Code extension
-    ├── src/
-    │   ├── extension.ts       # Entry point, command registration
-    │   ├── sidebar.ts         # Webview panel
-    │   └── fileWriter.ts      # Applies FilePatch to workspace
-    └── package.json
-```
+├── extension/                                # Dev 1 — VS Code extension
+│   ├── src/
+│   │   ├── extension.ts                      # entry point, command registration
+│   │   ├── sidebar.ts                        # webview panel
+│   │   └── fileWriter.ts                     # applies FilePatch to workspace files
+│   └── package.json
+│
+└── README.md
 
----
+
 
 ## Shared data contracts
 
