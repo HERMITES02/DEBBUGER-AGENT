@@ -1,0 +1,174 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# pytest
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.coveragerc
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# Ruff / linting
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.pem
+*.key
+*.p12
+secrets/
+
+# Keep the example file
+!.env.example
+
+# ── Node.js / Frontend / Extension ───────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+
+# Build output
+frontend/.next/
+frontend/out/
+frontend/build/
+extension/out/
+extension/dist/
+extension/*.vsix
+
+# Next.js
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Keep docker-compose.yml but ignore overrides with secrets
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+dump.rdb
+appendonly.aof
+redis.log
+
+# ── Vector store / Chroma ─────────────────────────────────────────────────────
+chroma_db/
+.chroma/
+vector_store/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+log/
+
+# ── OS generated ──────────────────────────────────────────────────────────────
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────────
+# VS Code (keep shared settings, ignore personal)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+Session.vim
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+test-results/
+playwright-report/
+test-results.xml
+
+# ── Sandbox / E2B ─────────────────────────────────────────────────────────────
+sandbox_output/
+.e2b/
+
+# ── Misc project artifacts ────────────────────────────────────────────────────
+# Uploaded files during dev/testing
+uploads/
+temp/
+tmp/
+scratch/
+
+# Any generated patches saved locally
+*.patch
+*.diff
+
+# Model weights or large binary files
+*.bin
+*.safetensors
+*.gguf
