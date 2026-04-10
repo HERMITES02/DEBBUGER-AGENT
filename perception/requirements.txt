@@ -1,0 +1,32 @@
+# ── Core ─────────────────────────────────────────────
+pydantic>=2.0.0              # schema validation (DebugRequest, AgentMessage, DebugResult)
+python-dotenv                # load .env API keys
+
+# ── Anthropic / AI ───────────────────────────────────
+anthropic>=0.40.0            # Claude API — vision agent uses this directly
+langchain>=1.0.0             # agent framework
+langchain-anthropic>=0.3.0   # Claude integration for langchain
+langgraph>=1.0.0             # agent orchestration (your perception nodes)
+
+# ── Input preprocessing ──────────────────────────────
+tree-sitter>=0.23.0          # AST parsing for code analysis agent
+tree-sitter-python>=0.23.0   # Python grammar for tree-sitter
+tree-sitter-javascript>=0.23.0  # JS grammar for tree-sitter
+ruff>=0.8.0                  # Python linter (fast, replaces flake8/pylint)
+pillow>=11.0.0               # image handling before base64 encoding
+
+# ── Memory / Vector store ────────────────────────────
+chromadb>=0.6.0              # local vector store for session memory
+langchain-chroma>=0.2.0      # langchain wrapper for chroma
+openai>=1.0.0                # for text-embedding-3-small embeddings
+
+# ── Redis (message bus to Dev 2) ─────────────────────
+redis>=5.0.0                 # publish AgentMessage to Dev 2's orchestrator
+
+# ── API server (your perception layer endpoint) ──────
+fastapi>=0.115.0             # lightweight API for input router
+uvicorn>=0.32.0              # ASGI server to run FastAPI
+
+# ── Async ────────────────────────────────────────────
+asyncio                      # built into Python 3.13, listed for clarity
+httpx>=0.27.0                # async HTTP client
