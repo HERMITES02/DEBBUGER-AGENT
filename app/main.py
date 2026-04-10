@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import json, os
 
 load_dotenv()
-from app.schemas import DebugRequest, DebugResult
+from shared.schema import DebugRequest, DebugResult
 from agents.orchestrator import orchestrator
 
 app = FastAPI(title="Debug Agent API", version="0.1.0")
