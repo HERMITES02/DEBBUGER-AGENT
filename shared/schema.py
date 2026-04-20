@@ -4,12 +4,13 @@ import uuid
 
 #user request format to the agent
 class DebugRequest(BaseModel):
-    session_id:  str       = str(uuid.uuid4())
-    code:        str
-    images:      list[str] = []
-    logs:        str       = ""
-    description: str       = ""
-    language:    str       = "python"
+    user_message: str
+    language: str = "python"
+    code: str | None = None        # ← was: code: str
+    logs: str | None = None
+    images: list[str] = []
+    description: str | None = None
+    session_id: str | None = None
 
 #dev1 agent message format for dev 2 orchestrator
 class AgentMessage(BaseModel):
