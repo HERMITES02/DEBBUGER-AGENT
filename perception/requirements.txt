@@ -1,32 +1,65 @@
-# ── Core ─────────────────────────────────────────────
-pydantic>=2.0.0              # schema validation (DebugRequest, AgentMessage, DebugResult)
-python-dotenv                # load .env API keys
-
-# ── Anthropic / AI ───────────────────────────────────
-anthropic>=0.40.0            # Claude API — vision agent uses this directly
-langchain>=1.0.0             # agent framework
-langchain-anthropic>=0.3.0   # Claude integration for langchain
-langgraph>=1.0.0             # agent orchestration (your perception nodes)
-
-# ── Input preprocessing ──────────────────────────────
-tree-sitter>=0.23.0          # AST parsing for code analysis agent
-tree-sitter-python>=0.23.0   # Python grammar for tree-sitter
-tree-sitter-javascript>=0.23.0  # JS grammar for tree-sitter
-ruff>=0.8.0                  # Python linter (fast, replaces flake8/pylint)
-pillow>=11.0.0               # image handling before base64 encoding
-
-# ── Memory / Vector store ────────────────────────────
-chromadb>=0.6.0              # local vector store for session memory
-langchain-chroma>=0.2.0      # langchain wrapper for chroma
-openai>=1.0.0                # for text-embedding-3-small embeddings
-
-# ── Redis (message bus to Dev 2) ─────────────────────
-redis>=5.0.0                 # publish AgentMessage to Dev 2's orchestrator
-
-# ── API server (your perception layer endpoint) ──────
-fastapi>=0.115.0             # lightweight API for input router
-uvicorn>=0.32.0              # ASGI server to run FastAPI
-
-# ── Async ────────────────────────────────────────────
-asyncio                      # built into Python 3.13, listed for clarity
-httpx>=0.27.0                # async HTTP client
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.10.0
+certifi==2025.8.3
+cffi==2.0.0
+charset-normalizer==3.4.3
+click==8.2.1
+colorama==0.4.6
+cryptography==46.0.5
+distro==1.9.0
+dnspython==2.8.0
+email-validator==2.3.0
+fastapi==0.116.1
+fastapi-cli==0.0.24
+fastapi-cloud-cli==0.16.1
+fastar==0.11.0
+google-auth==2.49.1
+google-genai==1.68.0
+h11==0.16.0
+httpcore==1.0.9
+httptools==0.6.4
+httpx==0.28.1
+idna==3.10
+Jinja2==3.1.6
+jiter==0.13.0
+joblib==1.5.2
+markdown-it-py==4.0.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+numpy==2.3.3
+openai==2.29.0
+pandas==2.3.2
+pyasn1==0.6.3
+pyasn1_modules==0.4.2
+pycparser==3.0
+pydantic==2.11.7
+pydantic_core==2.33.2
+Pygments==2.20.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.1.1
+python-multipart==0.0.26
+pytz==2025.2
+PyYAML==6.0.2
+requests==2.32.5
+rich==15.0.0
+rich-toolkit==0.19.7
+rignore==0.7.6
+scikit-learn==1.7.2
+scipy==1.16.1
+sentry-sdk==2.58.0
+shellingham==1.5.4
+six==1.17.0
+sniffio==1.3.1
+starlette==0.47.3
+tenacity==9.1.4
+threadpoolctl==3.6.0
+tqdm==4.67.3
+typer==0.24.1
+typing-inspection==0.4.1
+typing_extensions==4.15.0
+tzdata==2025.2
+urllib3==2.5.0
+uvicorn==0.35.0
+watchfiles==1.1.0
+websockets==15.0.1
