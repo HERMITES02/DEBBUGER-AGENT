@@ -1,0 +1,116 @@
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# ── Testing & Coverage ────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ── Type checking / lint ─────────────────────────────
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ── Jupyter ──────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Environment & Secrets ────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+*.p12
+secrets/
+
+# Keep example env
+!.env.example
+
+# ── Node / Frontend ──────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-*.log*
+pnpm-debug.log*
+.pnpm-store/
+.npm/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# ── Docker ───────────────────────────────────────────
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# ── Redis ────────────────────────────────────────────
+dump.rdb
+appendonly.aof
+redis.log
+
+# ── Vector DB / AI artifacts ─────────────────────────
+chroma_db/
+.chroma/
+vector_store/
+
+# ── Logs ─────────────────────────────────────────────
+logs/
+*.log
+
+# ── OS files ─────────────────────────────────────────
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+.nfs*
+
+# ── IDE / Editor ─────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.iml
+
+# ── Project temp files ───────────────────────────────
+uploads/
+temp/
+tmp/
+scratch/
+
+# ── Misc ─────────────────────────────────────────────
+*.patch
+*.diff
+*.bin
+*.safetensors
+*.gguf
