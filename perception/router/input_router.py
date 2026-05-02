@@ -7,6 +7,8 @@ from fastapi import FastAPI
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from shared.schema import DebugRequest, AgentMessage
 from perception.agents.vision_agent import run_vision_agent
+from perception.agents.run_code_analysis_agent import run_code_analysis_agent
+from perception.agents.context_builder_agent import run_context_builder_agent
 
 def classify(request: DebugRequest) -> list[dict]:
     modalities = []
@@ -33,11 +35,11 @@ def strip_ansi(text:str)->str:
 
 async def dispatch(request: DebugRequest) -> list:
     tasks = []
-    #tasks.append(run_code_analysis_agent(request))
+    tasks.append(run_code_analysis_agent(request))
     if request.images:
             tasks.append(run_vision_agent(request))
-    #if request.logs or request.description:
-            #tasks.append(run_context_builder_agent(request))
+    if request.logs or request.description:
+            tasks.append(run_context_builder_agent(request))
 
     if not tasks:
         print(f"[router] no agents dispatched yet — build agents next")
