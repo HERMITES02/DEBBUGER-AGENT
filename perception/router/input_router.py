@@ -3,12 +3,14 @@
 import asyncio, base64, re, sys
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from shared.schema import DebugRequest, AgentMessage
 from perception.agents.vision_agent import run_vision_agent
 from perception.agents.run_code_analysis_agent import run_code_analysis_agent
 from perception.agents.context_builder_agent import run_context_builder_agent
+from fastapi.middleware.cors import CORSMiddleware
+
 
 def classify(request: DebugRequest) -> list[dict]:
     modalities = []
@@ -72,6 +74,13 @@ async def route_final(request: DebugRequest)-> dict:
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.post("/route")
 async def route_endpoint(request: DebugRequest):
     return await route_final(request)
@@ -79,6 +88,27 @@ async def route_endpoint(request: DebugRequest):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "input_router"}
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    print(f"[router] WebSocket connected — session: {session_id}")
+    
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe("agent_messages")
+    
+    try:
+        for message in pubsub.listen():
+            if message["type"] == "message":
+                data = json.loads(message["data"])
+                # only forward messages for this session
+                if data.get("session_id") == session_id:
+                    await websocket.send_text(json.dumps(data))
+    except Exception as e:
+        print(f"[router] WebSocket error: {e}")
+    finally:
+        pubsub.unsubscribe("agent_messages")
+        print(f"[router] WebSocket closed — session: {session_id}")
 
 if __name__ == "__main__":
     import uvicorn
