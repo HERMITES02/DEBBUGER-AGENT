@@ -4,12 +4,14 @@ import json
 import os
 from pathlib import Path
 
+
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from shared.schema import DebugRequest, AgentMessage
 from dotenv import load_dotenv
 from anthropic import Anthropic, APIError, APITimeoutError
 from redis import Redis
+import redis.asyncio as aioredis
 
 load_dotenv()
 
@@ -141,8 +143,17 @@ async def run_vision_agent(request: DebugRequest) -> dict:
     )
 
     try:
-        subscribers = redis_client.rpush(f"results:{request.session_id}:vision", msg.model_dump_json())
-        print(f"[vision_agent] ✅ Published to Redis — {subscribers} subscribers listening")
+        r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+        await r.rpush(
+    f"results:{request.session_id}:vision",
+    json.dumps({
+        "agent_id": "vision_agent",
+        "extractions": results,
+        "confidence": overall_confidence,
+    })
+)
+        await r.expire(f"results:{request.session_id}:vision", 300)  # expire in 5 min
+        await r.aclose()
     except Exception as e:
         print(f"[vision_agent] ❌ Redis publish failed: {e}")
         # don't raise — still return result even if redis fails

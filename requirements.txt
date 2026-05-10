@@ -13,3 +13,7 @@ pytest==8.3.2
 pytest-asyncio==0.23.8
 e2b-code-interpreter==0.0.10
 tavily-python==0.3.9
+chromadb==0.5.3
+sentence-transformers==3.0.1
+celery==5.3.0
+redis-py==5.0.4

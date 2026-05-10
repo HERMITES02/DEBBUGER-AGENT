@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.callbacks import StdOutCallbackHandler
 import operator, os, httpx
 import asyncio
+from tools.redis_publisher import publish_agent_event
 
 from dotenv import load_dotenv
 from agents.search_agent import run_search_agent
@@ -31,6 +32,9 @@ class AgentState(TypedDict):
     test_code:       str | None   # ← new
     tests_passed:    bool | None  # ← new
     test_output:     str | None   # ← new
+    vision_result:     dict | None  # ← new — from Dev 1 vision agent
+    code_analysis:     dict | None  # ← new — from Dev 1 code agent
+    context_summary:   str | None
 
 load_dotenv_once = __import__('dotenv').load_dotenv()
 
@@ -43,39 +47,43 @@ llm = ChatAnthropic(
 )
 
 async def call_router_node(state: AgentState) -> AgentState:
+    sid = state.get("session_id") or "default-session"
+    await publish_agent_event(sid, "router", "thinking", "Classifying input...")
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
                 "http://localhost:8001/route",
                 json={
-                    "session_id":   state.get("session_id") or "default-session",
+                    "session_id":   sid,
                     "user_message": state["user_request"],
                     "language":     state.get("language", "python"),
                     "code":         state.get("code"),
                     "logs":         state.get("logs"),
                     "images":       state.get("images", []),
                 },
-                timeout=10.0
+                timeout=30.0
             )
             router_result = response.json()
-            modalities = router_result.get("modalities_detected", [])
-            print(f"[orchestrator] router connected — modalities: {modalities}")
+            modalities     = router_result.get("modalities_detected", [])
+            vision_result  = router_result.get("vision_result")
+            code_analysis  = router_result.get("code_result")
+            context_summary= router_result.get("context", {}).get("summary", "")
 
         except httpx.ConnectError:
-            # Router not running — fall back but warn loudly
-            print("[orchestrator] WARNING: input router not reachable on port 8001")
-            print("[orchestrator] Start it with: uvicorn perception.router.input_router:app --port 8001")
-            modalities = [{"type": "code", "language": state.get("language", "python")}]
+            print("[orchestrator] WARNING: router not reachable")
+            modalities, vision_result, code_analysis, context_summary = [], None, None, ""
 
-        except Exception as e:
-            print(f"[orchestrator] router error: {type(e).__name__}: {e}")
-            modalities = []
+    await publish_agent_event(sid, "router", "result", f"Detected: {modalities}")
 
     return {
         **state,
-        "modalities": modalities,
+        "modalities":      modalities,
+        "vision_result":   vision_result,
+        "code_analysis":   code_analysis,
+        "context_summary": context_summary,
         "messages": state["messages"] + [
-            AIMessage(content=f"Modalities detected: {modalities}")
+            AIMessage(content=f"Router: {modalities}, vision: {'yes' if vision_result else 'no'}")
         ]
     }
 from agents.search_agent import run_search_agent
@@ -102,33 +110,58 @@ async def search_node(state: AgentState) -> AgentState:
     }
 
 async def analyse_node(state: AgentState) -> AgentState:
+    sid = state.get("session_id") or "default-session"
+    await publish_agent_event(sid, "analyse", "thinking", "Identifying root cause...")
+
+    # Build vision context from Dev 1's vision agent output
+    vision_context = ""
+    if state.get("vision_result"):
+        v = state["vision_result"]
+        vision_context = f"""
+Screenshot analysis:
+- Error type: {v.get('error_type')}
+- Error summary: {v.get('error_summary')}
+- File: {v.get('error_filename')} line {v.get('error_linenumber')}
+- Stack trace: {v.get('stack_trace')}
+- Vision confidence: {v.get('confidence')}"""
+
+    # Build code analysis context from Dev 1's code agent
+    code_context = ""
+    if state.get("code_analysis"):
+        c = state["code_analysis"]
+        code_context = f"""
+Static analysis:
+- Suspicious line: {c.get('suspicious_line')}
+- Error type: {c.get('error_type')}
+- Lint issues: {c.get('lint_issues')}"""
+
+    # Search context
     search_context = ""
     if state.get("search_results"):
-        search_context = "\n\nRelevant search results:\n" + "\n".join(
-            f"- {s['title']}: {s['summary']}"
+        search_context = "\n\nRelevant solutions:\n" + "\n".join(
+            f"- {s['title']}: {s['summary'][:200]}"
             for s in state["search_results"]
         )
 
     prompt = f"""You are a code debugging expert.
-Analyse this bug and identify the root cause.
 
 User message: {state['user_request']}
 Language: {state.get('language', 'python')}
 Code: {state.get('code') or 'not provided'}
 Logs: {state.get('logs') or 'not provided'}
+{vision_context}
+{code_context}
 {search_context}
 
 Respond in this exact format:
-ROOT_CAUSE: <one sentence explanation>
+ROOT_CAUSE: <one sentence>
 CONFIDENCE: <0.0 to 1.0>
 NEEDS_MORE_INFO: <yes/no>"""
 
     response = await llm.ainvoke([HumanMessage(content=prompt)])
-    return {
-        "messages":   [response],
-        "root_cause": response.content,
-        "done":       True,
-    }
+    await publish_agent_event(sid, "analyse", "result", response.content[:150])
+    return {"messages": [response], "root_cause": response.content, "done": True}
+
 async def patch_node(state: AgentState) -> AgentState:
     """Generate a code fix based on the root cause."""
     print("[orchestrator] running patch agent...")
@@ -190,10 +223,23 @@ def search_context_from(state: AgentState) -> str:
         f"- {s['title']}: {s['summary']}"
         for s in state["search_results"]
     )
+
 def router_node(state: AgentState) -> str:
     if state.get("done"):
         return "done"
     return "analyse"
+
+async def parallel_node(state: AgentState) -> AgentState:
+    """Run search agent and wait — analyse uses results."""
+    sid = state.get("session_id") or "default"
+    await publish_agent_event(sid, "search", "thinking", "Searching docs...")
+
+    result = await run_search_agent(
+        state["user_request"],
+        state.get("language", "python")
+    )
+    await publish_agent_event(sid, "search", "result", f"Found {len(result.get('sources',[]))} results")
+    return {"search_results": result.get("sources", [])}
 
 def build_graph():
     graph = StateGraph(AgentState)

@@ -28,3 +28,19 @@ class DebugResult(BaseModel):
     explanation: str
     tests:       list[str] = []
     confidence:  float     = 1.0
+
+class RouterResult(BaseModel):
+    session_id:          str | None
+    modalities_detected: list[dict]
+    agents_fired:        int
+    vision_result:       dict | None = None
+    code_result:         dict | None = None
+    context:             dict | None = None
+
+class FilePatch(BaseModel):
+    file_path:    str
+    start_line:   int
+    end_line:     int
+    new_content:  str
+    diff_preview: str
+    confidence:   float = 0.0

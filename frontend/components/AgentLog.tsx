@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react"
 
 interface AgentMessage {
-  agent_id: string
-  type: string
-  content: Record<string, unknown>
+  agent_id:   string
+  type:       string
+  payload:    string    // ← was "content"
   confidence: number
   session_id: string
+  timestamp:  number
 }
 
 interface AgentLogProps {
@@ -40,8 +41,7 @@ export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
   useEffect(() => {
     if (!sessionId || !isRunning) return
 
-    const ws = new WebSocket(`ws://localhost:8001/ws/${sessionId}`)
-
+    const ws = new WebSocket(`ws://localhost:8000/ws/debug`)
     ws.onopen = () => {
       setConnected(true)
       console.log("[AgentLog] WebSocket connected")
@@ -210,7 +210,7 @@ export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
               {/* Message type + confidence */}
               <div style={{ flex: 1 }}>
                 <span style={{ color: "#d4d4d4", fontSize: "12px" }}>
-                  {log.type}
+                 {log.type}: {log.payload?.slice(0, 80)}
                 </span>
                 <span style={{
                   marginLeft: "8px",

@@ -11,6 +11,7 @@ from shared.schema import DebugRequest, AgentMessage
 from dotenv import load_dotenv
 from anthropic import Anthropic, APIError, APITimeoutError
 from redis import Redis
+import redis.asyncio as aioredis
 import subprocess
 
 load_dotenv()
@@ -125,7 +126,7 @@ async def run_code_analysis_agent(request: DebugRequest) -> dict:
     if not request.code:
         print("[run_code_analysis_agent] ⚠️ No code in request")
         return None
-    
+
     ruff_output = run_ruff(request.code)
     ast_summary = run_treesitter(request.code)
     claude_result = analyse_with_claude(ruff_output, ast_summary, request.code)
@@ -134,35 +135,29 @@ async def run_code_analysis_agent(request: DebugRequest) -> dict:
         session_id=request.session_id,
         type="code_analysed",
         agent_id="code_analysis_agent",
-        content= {
-                "ruff_output": ruff_output,
-                "ast_summary": ast_summary,
-                "bug_classification": claude_result.get("bug_classification"),
-                "affected_functions": claude_result.get("affected_functions"),
-                "severity": claude_result.get("severity"),
-                "explanation": claude_result.get("explanation")
-            },
-        confidence= claude_result["confidence"]
+        content={
+            "ruff_output":         ruff_output,
+            "ast_summary":         ast_summary,
+            "bug_classification":  claude_result.get("bug_classification"),
+            "affected_functions":  claude_result.get("affected_functions"),
+            "severity":            claude_result.get("severity"),
+            "explanation":         claude_result.get("explanation")
+        },
+        confidence=claude_result["confidence"]
     )
 
     try:
-        subscribers = redis_client.rpush(f"results:{request.session_id}:code", msg.model_dump_json())
-        print(f"[code_analysis_agent] ✅ Published to Redis — {subscribers} subscribers listening")
+        r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+
+        await r.rpush(
+            f"results:{request.session_id}:code",   # ← was: session_id
+            json.dumps(msg.model_dump())             # ← was: code_analysis_result
+        )
+        await r.expire(f"results:{request.session_id}:code", 300)
+        await r.aclose()
+        print(f"[code_analysis_agent] pushed result to Redis for session {request.session_id}")
+
     except Exception as e:
-        print(f"[code_analysis_agent] ❌ Redis publish failed: {e}")
+        print(f"[code_analysis_agent] Redis push failed: {e}")
 
     return msg.model_dump()
-
-
-if __name__ == "__main__":
-    import asyncio
-    
-    test_request = DebugRequest(
-        user_message="this crashes when i pass 0",
-        code="def calc(a, b):\n    return a / b\n\nresult = calc(10, 0)",
-        language="python",
-        session_id="test-session-123"
-    )
-    
-    result = asyncio.run(run_code_analysis_agent(test_request))
-    print(result)

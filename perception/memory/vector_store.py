@@ -1,70 +1,62 @@
-import os
-import json
+import os, json
 from pathlib import Path
 import sys
-
-
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-
 from dotenv import load_dotenv
 import chromadb
-import voyageai
-from chromadb.utils.embedding_functions import EmbeddingFunction
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 load_dotenv()
 
-class VoyageEmbedding(EmbeddingFunction):
-    def __init__(self):
-        self.vo = voyageai.Client(api_key=os.getenv("VOYAGE_API_KEY"))
-    
-    def __call__(self, input):
-        result = self.vo.embed(input, model="voyage-3-lite")
-        return result.embeddings
-    
+# Persistent — survives restarts. Stored in project root/chroma_db/
+DB_PATH = str(Path(__file__).resolve().parents[2] / "chroma_db")
 
-chroma_client = chromadb.Client()
+chroma_client = chromadb.PersistentClient(path=DB_PATH)
+
+embedding_fn = SentenceTransformerEmbeddingFunction(
+    model_name="all-MiniLM-L6-v2"  # free, fast, good enough for bug similarity
+)
+
 collection = chroma_client.get_or_create_collection(
     "debug_sessions",
-    embedding_function=VoyageEmbedding()
+    embedding_function=embedding_fn
 )
 
 def search_similar_bugs(description: str) -> list[dict]:
-    if not description:
+    """Find past bugs similar to this description."""
+    if not description or not description.strip():
         return []
-    results = collection.query(
-        query_texts=[description],
-        n_results=2       
-    )
-    return results['documents'][0] if results and 'documents' in results and len(results['documents']) > 0 else []
-
+    try:
+        results = collection.query(
+            query_texts=[description],
+            n_results=2
+        )
+        docs = results.get("documents", [[]])[0]
+        return docs if docs else []
+    except Exception as e:
+        print(f"[vector_store] search failed: {e}")
+        return []
 
 def store_session(session_id: str, claude_result: dict, user_message: str):
-
-
+    """Store a debug session for future similarity search."""
     description = f"""
-        Bug summary: {claude_result.get('bug_summary', '')}
-        Primary cause: {claude_result.get('primary_cause', '')}
-        Relevant context: {claude_result.get('relevant_context', '')}
-        User description: {user_message}
+Bug summary: {claude_result.get('bug_summary', '')}
+Primary cause: {claude_result.get('primary_cause', '')}
+Relevant context: {claude_result.get('relevant_context', '')}
+User description: {user_message}
     """.strip()
 
-
-    
     if not description:
         return
-    
     try:
-
-        collection.add(
+        # Use upsert so re-running same session_id doesn't crash
+        collection.upsert(
             documents=[description],
             ids=[session_id]
         )
-
-
-        print(f"[vector_store] stored session {session_id} in ChromaDB")
+        print(f"[vector_store] stored session {session_id}")
     except Exception as e:
-        print(f"[vector_store] ChromaDB store warning: {e}")
-
+        print(f"[vector_store] store warning: {e}")
 
 def get_collection():
     return collection
