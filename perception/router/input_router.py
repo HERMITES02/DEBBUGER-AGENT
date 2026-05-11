@@ -40,8 +40,9 @@ async def dispatch(request: DebugRequest) -> list:
     tasks.append(run_code_analysis_agent(request))
     if request.images:
             tasks.append(run_vision_agent(request))
-    if request.logs or request.description:
-            tasks.append(run_context_builder_agent(request))
+    
+            
+    tasks.append(run_context_builder_agent(request))
 
     if not tasks:
         print(f"[router] no agents dispatched yet — build agents next")

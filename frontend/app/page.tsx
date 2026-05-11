@@ -6,8 +6,7 @@ import AgentLog from "@/components/AgentLog"
 import DiffViewer from "@/components/DiffViewer"
 
 interface DebugResult {
-  originalCode: string
-  fixedCode: string
+  diff: string
   explanation: string
   confidence: number
 }
@@ -30,12 +29,18 @@ export default function Home() {
       <AgentLog
         sessionId={sessionId}
         isRunning={isRunning}
+        onPatchReady={(patchData) => {
+          setResult({
+            diff: patchData.diff as string,
+            explanation: patchData.explanation as string,
+            confidence: patchData.confidence as number 
+          })
+        }}
       />
 
       {result && (
         <DiffViewer
-          originalCode={result.originalCode}
-          fixedCode={result.fixedCode}
+          diff={result.diff}
           explanation={result.explanation}
           confidence={result.confidence}
         />

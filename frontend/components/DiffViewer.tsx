@@ -1,27 +1,27 @@
 "use client"
 
-import { useMemo } from "react"
-import * as Diff from "diff"
-
 interface DiffViewerProps {
-  originalCode: string
-  fixedCode: string
+  diff: string
   explanation?: string
   confidence?: number
 }
 
 export default function DiffViewer({
-  originalCode,
-  fixedCode,
+  diff,
   explanation,
   confidence
 }: DiffViewerProps) {
 
-  const changes = useMemo(() => {
-    return Diff.diffLines(originalCode, fixedCode)
-  }, [originalCode, fixedCode])
+  if (!diff) return null
 
-  if (!originalCode && !fixedCode) return null
+  // parse raw unified diff into lines
+  const lines = diff.split("\n")
+
+  // extract fixed code from diff (lines starting with + excluding +++)
+  const fixedCode = lines
+    .filter(l => l.startsWith("+") && !l.startsWith("+++"))
+    .map(l => l.slice(1))
+    .join("\n")
 
   return (
     <div style={{
@@ -110,14 +110,9 @@ export default function DiffViewer({
               { color: "#f14c4c", label: "removed" },
               { color: "#5a5a5a", label: "unchanged" }
             ].map(({ color, label }) => (
-              <div key={label} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "5px"
-              }}>
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                 <div style={{
-                  width: "8px",
-                  height: "8px",
+                  width: "8px", height: "8px",
                   borderRadius: "2px",
                   backgroundColor: color
                 }} />
@@ -133,63 +128,66 @@ export default function DiffViewer({
           maxHeight: "400px",
           overflowY: "auto"
         }}>
-          {changes.map((change, changeIndex) => {
-            const lines = change.value.split("\n").filter((_, i, arr) =>
-              i < arr.length - 1 || change.value.endsWith("\n") ? true : i < arr.length - 1
+          {lines.map((line, index) => {
+            const isAdded = line.startsWith("+") && !line.startsWith("+++")
+            const isRemoved = line.startsWith("-") && !line.startsWith("---")
+            const isMeta = line.startsWith("@@") || line.startsWith("---") || line.startsWith("+++")
+
+            if (isMeta) return (
+              <div key={index} style={{
+                padding: "2px 12px",
+                color: "#5a5a5a",
+                fontSize: "12px",
+                fontStyle: "italic"
+              }}>
+                {line}
+              </div>
             )
 
-            return lines.map((line, lineIndex) => {
-              const isAdded = change.added
-              const isRemoved = change.removed
-
-              return (
-                <div
-                  key={`${changeIndex}-${lineIndex}`}
-                  style={{
-                    display: "flex",
-                    backgroundColor: isAdded
-                      ? "rgba(152, 195, 121, 0.1)"
-                      : isRemoved
-                        ? "rgba(241, 76, 76, 0.1)"
-                        : "transparent",
-                    borderLeft: isAdded
-                      ? "2px solid #98c379"
-                      : isRemoved
-                        ? "2px solid #f14c4c"
-                        : "2px solid transparent"
-                  }}
-                >
-                  {/* Sign column */}
-                  <div style={{
-                    minWidth: "28px",
-                    textAlign: "center",
-                    color: isAdded ? "#98c379" : isRemoved ? "#f14c4c" : "#3e3e42",
-                    fontSize: "13px",
-                    padding: "2px 0",
-                    userSelect: "none"
-                  }}>
-                    {isAdded ? "+" : isRemoved ? "-" : " "}
-                  </div>
-
-                  {/* Line content */}
-                  <div style={{
-                    flex: 1,
-                    color: isAdded ? "#98c379" : isRemoved ? "#f14c4c" : "#d4d4d4",
-                    fontSize: "13px",
-                    padding: "2px 12px 2px 8px",
-                    whiteSpace: "pre",
-                    lineHeight: "1.6"
-                  }}>
-                    {line || " "}
-                  </div>
+            return (
+              <div key={index} style={{
+                display: "flex",
+                backgroundColor: isAdded
+                  ? "rgba(152, 195, 121, 0.1)"
+                  : isRemoved
+                    ? "rgba(241, 76, 76, 0.1)"
+                    : "transparent",
+                borderLeft: isAdded
+                  ? "2px solid #98c379"
+                  : isRemoved
+                    ? "2px solid #f14c4c"
+                    : "2px solid transparent"
+              }}>
+                {/* Sign */}
+                <div style={{
+                  minWidth: "28px",
+                  textAlign: "center",
+                  color: isAdded ? "#98c379" : isRemoved ? "#f14c4c" : "#3e3e42",
+                  fontSize: "13px",
+                  padding: "2px 0",
+                  userSelect: "none"
+                }}>
+                  {isAdded ? "+" : isRemoved ? "-" : " "}
                 </div>
-              )
-            })
+
+                {/* Content */}
+                <div style={{
+                  flex: 1,
+                  color: isAdded ? "#98c379" : isRemoved ? "#f14c4c" : "#d4d4d4",
+                  fontSize: "13px",
+                  padding: "2px 12px 2px 8px",
+                  whiteSpace: "pre",
+                  lineHeight: "1.6"
+                }}>
+                  {isAdded || isRemoved ? line.slice(1) : line || " "}
+                </div>
+              </div>
+            )
           })}
         </div>
       </div>
 
-      {/* Copy fixed code button */}
+      {/* Copy fixed code */}
       <button
         onClick={() => navigator.clipboard.writeText(fixedCode)}
         style={{

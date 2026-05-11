@@ -13,6 +13,7 @@ interface AgentMessage {
 interface AgentLogProps {
   sessionId: string
   isRunning: boolean
+  onPatchReady: (data: Record<string, unknown>) => void
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -33,7 +34,7 @@ const AGENT_LABELS: Record<string, string> = {
   test_agent: "test agent",
 }
 
-export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
+export default function AgentLog({ sessionId, isRunning, onPatchReady }: AgentLogProps) {
   const [logs, setLogs] = useState<AgentMessage[]>([])
   const [connected, setConnected] = useState<boolean>(false)
 
@@ -51,9 +52,16 @@ export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
       try {
         const data: AgentMessage = JSON.parse(event.data)
         setLogs(prev => [...prev, data])
+
+        if (data.agent_id === "patch" && data.content?.diff) {
+          onPatchReady(data.content)
+        }
+        
       } catch (e) {
         console.error("[AgentLog] failed to parse message:", e)
       }
+
+      
     }
 
     ws.onerror = (error) => {
@@ -73,7 +81,7 @@ export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
   // clear logs when new session starts
   useEffect(() => {
     if (isRunning) setLogs([])
-  }, [sessionId])
+  }, [isRunning])
 
   if (!isRunning && logs.length === 0) return null
 
