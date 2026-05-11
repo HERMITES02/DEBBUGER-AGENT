@@ -3,17 +3,17 @@
 import { useState, useEffect } from "react"
 
 interface AgentMessage {
-  agent_id: string
-  type: string
-  content: Record<string, unknown>
+  agent_id:   string
+  type:       string
+  payload:    string    // ← was "content"
   confidence: number
   session_id: string
+  timestamp:  number
 }
 
 interface AgentLogProps {
   sessionId: string
   isRunning: boolean
-  onPatchReady: (data: Record<string, unknown>) => void
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -34,15 +34,14 @@ const AGENT_LABELS: Record<string, string> = {
   test_agent: "test agent",
 }
 
-export default function AgentLog({ sessionId, isRunning, onPatchReady }: AgentLogProps) {
+export default function AgentLog({ sessionId, isRunning }: AgentLogProps) {
   const [logs, setLogs] = useState<AgentMessage[]>([])
   const [connected, setConnected] = useState<boolean>(false)
 
   useEffect(() => {
     if (!sessionId || !isRunning) return
 
-    const ws = new WebSocket(`ws://localhost:8001/ws/${sessionId}`)
-
+    const ws = new WebSocket(`ws://localhost:8000/ws/debug`)
     ws.onopen = () => {
       setConnected(true)
       console.log("[AgentLog] WebSocket connected")
@@ -52,16 +51,9 @@ export default function AgentLog({ sessionId, isRunning, onPatchReady }: AgentLo
       try {
         const data: AgentMessage = JSON.parse(event.data)
         setLogs(prev => [...prev, data])
-
-        if (data.agent_id === "patch" && data.content?.diff) {
-          onPatchReady(data.content)
-        }
-        
       } catch (e) {
         console.error("[AgentLog] failed to parse message:", e)
       }
-
-      
     }
 
     ws.onerror = (error) => {
@@ -81,7 +73,7 @@ export default function AgentLog({ sessionId, isRunning, onPatchReady }: AgentLo
   // clear logs when new session starts
   useEffect(() => {
     if (isRunning) setLogs([])
-  }, [isRunning])
+  }, [sessionId])
 
   if (!isRunning && logs.length === 0) return null
 
@@ -218,7 +210,7 @@ export default function AgentLog({ sessionId, isRunning, onPatchReady }: AgentLo
               {/* Message type + confidence */}
               <div style={{ flex: 1 }}>
                 <span style={{ color: "#d4d4d4", fontSize: "12px" }}>
-                  {log.type}
+                 {log.type}: {log.payload?.slice(0, 80)}
                 </span>
                 <span style={{
                   marginLeft: "8px",
