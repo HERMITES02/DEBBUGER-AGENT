@@ -9,7 +9,14 @@ from shared.schema import DebugRequest, AgentMessage
 from perception.agents.vision_agent import run_vision_agent
 from perception.agents.run_code_analysis_agent import run_code_analysis_agent
 from perception.agents.context_builder_agent import run_context_builder_agent
+
+
 from fastapi.middleware.cors import CORSMiddleware
+import json                          # ← add this import
+import redis.asyncio as aioredis     # ← async client, not sync
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def classify(request: DebugRequest) -> list[dict]:
@@ -36,41 +43,47 @@ def strip_ansi(text:str)->str:
     return ansi_escape.sub('', text).strip()
 
 async def dispatch(request: DebugRequest) -> list:
-    tasks = []
-    tasks.append(run_code_analysis_agent(request))
+    # Phase 1: run perception agents in parallel
+    perception_tasks = []
+
     if request.images:
             tasks.append(run_vision_agent(request))
-    
-            
-    tasks.append(run_context_builder_agent(request))
+    if request.logs or request.description:
+            tasks.append(run_context_builder_agent(request))
 
-    if not tasks:
-        print(f"[router] no agents dispatched yet — build agents next")
-        return []
+    if perception_tasks:
+        perception_results = await asyncio.gather(
+            *perception_tasks, return_exceptions=True
+        )
+        print(f"[router] perception done: {len(perception_results)} agents")
+    else:
+        print("[router] no images or code — skipping perception")
+        perception_results = []
 
-    
-    results = await asyncio.gather(*tasks)
-    return results
+    # Phase 2: context builder reads from Redis lists written by agents above
+    if request.images or request.code:
+        context_result = await run_context_builder_agent(request)
+    else:
+        context_result = None
 
-async def route_final(request: DebugRequest)-> dict:
+    return [r for r in perception_results if r is not None]
 
-    print(f"[router] Received request — session: {request.session_id}")
-
+async def route_final(request: DebugRequest) -> dict:
+    print(f"[router] session: {request.session_id}")
     modalities = classify(request)
-    print(f"[router] detected modalities: {[m['type'] for m in modalities]}")
 
     if request.images:
         request.images = preprocess_images(request.images)
-
     if request.logs:
         request.logs = strip_ansi(request.logs)
 
-    results= await dispatch(request)
+    results = await dispatch(request)
 
     return {
-        "session_id": request.session_id,
+        "session_id":          request.session_id,
         "modalities_detected": modalities,
-        "agents_fired": len(results)
+        "agents_fired":        len(results),
+        "context":             results[0] if results else None,
     }
 
 app = FastAPI()
@@ -94,22 +107,35 @@ async def health():
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await websocket.accept()
     print(f"[router] WebSocket connected — session: {session_id}")
-    
-    pubsub = redis_client.pubsub()
-    pubsub.subscribe("agent_messages")
-    
+
+    # Async Redis client — won't block the event loop
+    r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+    pubsub = r.pubsub()
+
+    # Subscribe to the session-specific channel
+    # ← was: "agent_messages" (global, wrong)
+    await pubsub.subscribe(f"agent:events:{session_id}")
+
     try:
-        for message in pubsub.listen():
-            if message["type"] == "message":
-                data = json.loads(message["data"])
-                # only forward messages for this session
-                if data.get("session_id") == session_id:
-                    await websocket.send_text(json.dumps(data))
+        async for message in pubsub.listen():     # ← async for, not for
+            if message["type"] != "message":
+                continue
+
+            data = json.loads(message["data"])
+            await websocket.send_text(json.dumps(data))
+
+            # Stop when orchestrator signals done
+            if data.get("type") == "done":
+                break
+
     except Exception as e:
         print(f"[router] WebSocket error: {e}")
+
     finally:
-        pubsub.unsubscribe("agent_messages")
+        await pubsub.unsubscribe(f"agent:events:{session_id}")
+        await r.aclose()
         print(f"[router] WebSocket closed — session: {session_id}")
+
 
 if __name__ == "__main__":
     import uvicorn

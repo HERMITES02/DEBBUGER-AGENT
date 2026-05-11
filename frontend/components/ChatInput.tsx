@@ -57,33 +57,26 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
   }
 
   const handleSubmit = async () => {
-    if (!code && images.length === 0) {
-      alert("Please provide code or an image")
-      return
-    }
-    setLoading(true)
-    try {
-      const response = await fetch("http://localhost:8001/route", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_message: description,
-          code: code,
-          language: language,
-          images: images,
-          session_id: crypto.randomUUID()
-        })
-      })
-      const result = await response.json()
-      console.log("[ChatInput] result:", result)
-    } catch (error) {
-      console.error("[ChatInput] error:", error)
-      alert("Failed to connect to backend")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const sessionId = crypto.randomUUID()
+  setLoading(true)
 
+  // Open WebSocket BEFORE posting (so we don't miss early events)
+  onSubmit(sessionId)   // ← this starts AgentLog listening
+
+  const response = await fetch("http://localhost:8000/debug", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_message: description,
+      code, language,
+      images: images.map(img => img.split(",")[1] || img),
+      session_id: sessionId
+    })
+  })
+  const result = await response.json()
+  console.log("[ChatInput] result:", result)
+  setLoading(false)
+}
   const fileExt: Record<string, string> = {
     python: "py", javascript: "js", typescript: "ts",
     java: "java", cpp: "cpp", rust: "rs"

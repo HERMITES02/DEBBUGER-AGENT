@@ -1,5 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from tools.redis_publisher import close_redis
+from tools.redis_publisher import get_redis
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import json, os
 
@@ -7,7 +10,24 @@ load_dotenv()
 from shared.schema import DebugRequest, DebugResult
 from agents.orchestrator import orchestrator
 
-app = FastAPI(title="Debug Agent API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        r = await get_redis()
+        await r.ping()
+        print("[startup] Redis connection OK")
+    except Exception as e:
+        print(f"[startup] WARNING: Redis not reachable — {e}")
+        print("[startup] Agent streaming will not work without Redis")
+
+    yield
+
+    # Shutdown
+    await close_redis()
+    print("[shutdown] Redis connection closed")
+
+app = FastAPI(title="Debug Agent API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,6 +35,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Add these two lifecycle events to main.py
+
 
 @app.get("/health")
 async def health():
@@ -43,6 +67,9 @@ async def debug(req: DebugRequest):
         "test_code":         None,
         "tests_passed":      None,
         "test_output":       None,
+        "vision_result":   None,  # ← add
+    "code_analysis":   None,  # ← add
+    "context_summary": None,  # ← add
     })
 
     return DebugResult(
