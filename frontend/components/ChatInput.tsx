@@ -10,10 +10,11 @@ const TAGLINES = [
 ]
 
 interface ChatInputProps {
-  onSubmit: (sessionId: string) => void
+  onStart: (sessionId: string) => void
+  onResult: (result: any) => void
 }
 
-export default function ChatInput({ onSubmit }: ChatInputProps) {
+export default function ChatInput({ onStart, onResult }: ChatInputProps) {
   const [code, setCode] = useState<string>("")
   const [description, setDescription] = useState<string>("")
   const [language, setLanguage] = useState<string>("python")
@@ -57,26 +58,37 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
   }
 
   const handleSubmit = async () => {
-  const sessionId = crypto.randomUUID()
-  setLoading(true)
+    if (!code && images.length === 0) {
+      alert("Please provide code or an image")
+      return
+    }
+    
+    const sessionId = crypto.randomUUID()
+    setLoading(true)
+    onStart(sessionId)
+  
+    try {
+      const response = await fetch("http://localhost:8000/debug", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_message: description,
+          code, language,
+          images: images.map(img => img.split(",")[1] || img),
+          session_id: sessionId
+        })
+      })
+      const result = await response.json()
+      console.log("[ChatInput] result:", result)
+      onResult(result)  
+    } catch (error) {
+      console.error("[ChatInput] error:", error)
+      alert("Failed to connect to backend")
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // Open WebSocket BEFORE posting (so we don't miss early events)
-  onSubmit(sessionId)   // ← this starts AgentLog listening
-
-  const response = await fetch("http://localhost:8000/debug", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_message: description,
-      code, language,
-      images: images.map(img => img.split(",")[1] || img),
-      session_id: sessionId
-    })
-  })
-  const result = await response.json()
-  console.log("[ChatInput] result:", result)
-  setLoading(false)
-}
   const fileExt: Record<string, string> = {
     python: "py", javascript: "js", typescript: "ts",
     java: "java", cpp: "cpp", rust: "rs"

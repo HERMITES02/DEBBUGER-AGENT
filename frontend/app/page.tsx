@@ -19,23 +19,27 @@ export default function Home() {
   return (
     <div>
       <ChatInput
-        onSubmit={(newSessionId) => {
-          setSessionId(newSessionId)
-          setIsRunning(true)
-          setResult(null)
-        }}
+      onStart={(newSessionId) => {
+    setSessionId(newSessionId)
+    setIsRunning(true)
+    setResult(null)
+  }}
+  onResult={(data) => {
+    console.log("[page] result received:", data)
+    if (data?.patch) {
+      setResult({
+        diff: data.patch,
+        explanation: data.explanation || "",
+        confidence: data.confidence || 0.6
+      })
+      setIsRunning(false)
+    }
+  }}
       />
 
       <AgentLog
         sessionId={sessionId}
         isRunning={isRunning}
-        onPatchReady={(patchData) => {
-          setResult({
-            diff: patchData.diff as string,
-            explanation: patchData.explanation as string,
-            confidence: patchData.confidence as number 
-          })
-        }}
       />
 
       {result && (
