@@ -25,9 +25,8 @@ export default function DiffViewer({
 
   return (
     <div style={{
-      maxWidth: "820px",
-      margin: "0 auto",
-      padding: "0 1.5rem 4rem",
+      width: "100%",
+      padding: "0",
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace"
     }}>
 

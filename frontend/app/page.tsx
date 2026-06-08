@@ -1,54 +1,84 @@
 "use client"
 
-import { useState } from "react"
+import Sidebar from "@/components/SideBar"
+import AuthModal from "@/components/AuthModal"
 import ChatInput from "@/components/ChatInput"
-import AgentLog from "@/components/AgentLog"
-import DiffViewer from "@/components/DiffViewer"
-
-interface DebugResult {
-  diff: string
-  explanation: string
-  confidence: number
-}
+import AgentFlowChart from "@/components/AgentFlowChart"
+import { useDebugger, MOCK_MODE, MOCK_AGENTS , MOCK_RESULT} from "@/hooks/usedebugger"
 
 export default function Home() {
-  const [sessionId, setSessionId] = useState<string>("")
-  const [isRunning, setIsRunning] = useState<boolean>(false)
-  const [result, setResult] = useState<DebugResult | null>(null)
+  const {
+    appState, sessionId, code, description,
+    result, sessions, showAuth, user,
+    setShowAuth,
+    handleStart, handleResult, handleNewSession,
+    handleLogin, handleLogout,
+  } = useDebugger()
+
+  const showFlowchart = appState === "running" || appState === "done"
 
   return (
-    <div>
+    <div style={{
+      display: "flex", height: "100vh", overflow: "hidden",
+      backgroundColor: "#1e1e1e",
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      color: "#d4d4d4"
+    }}>
+
+      <Sidebar
+        sessions={sessions}
+        onNewSession={handleNewSession}
+        onSelectSession={() => {}}
+        currentSessionId={sessionId}
+        user={user}
+        onLoginClick={() => setShowAuth(true)}
+        onLogout={handleLogout}
+      />
+
       <ChatInput
-      onStart={(newSessionId) => {
-    setSessionId(newSessionId)
-    setIsRunning(true)
-    setResult(null)
-  }}
-  onResult={(data) => {
-    console.log("[page] result received:", data)
-    if (data?.patch) {
-      setResult({
-        diff: data.patch,
-        explanation: data.explanation || "",
-        confidence: data.confidence || 0.6
-      })
-      setIsRunning(false)
-    }
-  }}
+        appState={appState}
+        code={code}
+        description={description}
+        result={result}
+        onStart={handleStart}
+        onResult={handleResult}
+        onNewSession={handleNewSession}
+        mockMode={MOCK_MODE}
+        mockResult={MOCK_RESULT}
       />
 
-      <AgentLog
-        sessionId={sessionId}
-        isRunning={isRunning}
-      />
+      {showFlowchart && (
+        <div style={{
+          width: "300px",
+          borderLeft: "1px solid #2a2a2a",
+          backgroundColor: "#1a1a1a",
+          overflowY: "auto",
+          padding: "2rem 2rem 1rem 2rem"
+        }}>
+          <AgentFlowChart
+            sessionId={sessionId}
+            isRunning={appState === "running"}
+            mockMode={MOCK_MODE}
+            mockAgents={MOCK_AGENTS}
+          />
+        </div>
+      )}
 
-      {result && (
-        <DiffViewer
-          diff={result.diff}
-          explanation={result.explanation}
-          confidence={result.confidence}
+      {showAuth && (
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onLogin={handleLogin}
         />
       )}
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #007acc; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #1a9fff; }
+        ::-webkit-scrollbar-corner { background: transparent; }
+      `}</style>
     </div>
   )
 }

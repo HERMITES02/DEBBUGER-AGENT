@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import DiffViewer from "./DiffViewer"
 
 const TAGLINES = [
   "paste code. drop screenshot. get the fix.",
@@ -10,401 +11,426 @@ const TAGLINES = [
 ]
 
 interface ChatInputProps {
-  onStart: (sessionId: string) => void
+  appState: "idle" | "running" | "done"
+  code: string
+  description: string
+  result: any
+  onStart: (sessionId: string, code: string, description: string) => void
   onResult: (result: any) => void
+  onNewSession: () => void
+  mockMode?: boolean
+  mockResult?: any
 }
 
-export default function ChatInput({ onStart, onResult }: ChatInputProps) {
-  const [code, setCode] = useState<string>("")
-  const [description, setDescription] = useState<string>("")
-  const [language, setLanguage] = useState<string>("python")
+
+export default function ChatInput({  appState, code: parentCode, description: parentDesc,result, onStart, onResult, onNewSession, mockMode , mockResult }: ChatInputProps) {
+  const [code, setCode] = useState("")
+  const [description, setDescription] = useState("")
+  const [language, setLanguage] = useState("python")
   const [images, setImages] = useState<string[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
-  const [dragOver, setDragOver] = useState<boolean>(false)
-  const [taglineIndex, setTaglineIndex] = useState<number>(0)
-  const [visible, setVisible] = useState<boolean>(true)
+  const [loading, setLoading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [taglineIndex, setTaglineIndex] = useState(0)
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
     const interval = setInterval(() => {
       setVisible(false)
-      setTimeout(() => {
-        setTaglineIndex(prev => (prev + 1) % TAGLINES.length)
-        setVisible(true)
-      }, 400)
+      setTimeout(() => { setTaglineIndex(p => (p + 1) % TAGLINES.length); setVisible(true) }, 400)
     }, 3000)
     return () => clearInterval(interval)
   }, [])
 
   const handleImageUpload = (file: File) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result as string
-      setImages(prev => [...prev, base64])
-    }
+    reader.onload = () => setImages(prev => [...prev, reader.result as string])
     reader.readAsDataURL(file)
   }
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    handleImageUpload(file)
-  }
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setDragOver(false)
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false)
     const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith("image/")) handleImageUpload(file)
+    if (file?.type.startsWith("image/")) handleImageUpload(file)
   }
 
   const handleSubmit = async () => {
-    if (!code && images.length === 0) {
-      alert("Please provide code or an image")
-      return
-    }
-    
+    if (!code && images.length === 0) { alert("Please provide code or an image"); return }
     const sessionId = crypto.randomUUID()
     setLoading(true)
-    onStart(sessionId)
-  
+    onStart(sessionId, code, description, images.length)
+
+    if (mockMode && mockResult) {
+      setTimeout(() => { onResult(mockResult); setLoading(false) }, 10000)
+      return
+    }
+
     try {
-      const response = await fetch("http://localhost:8000/debug", {
+      const res = await fetch("http://localhost:8000/debug", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_message: description,
-          code, language,
+          user_message: description, code, language,
           images: images.map(img => img.split(",")[1] || img),
           session_id: sessionId
         })
       })
-      const result = await response.json()
-      console.log("[ChatInput] result:", result)
-      onResult(result)  
-    } catch (error) {
-      console.error("[ChatInput] error:", error)
-      alert("Failed to connect to backend")
-    } finally {
-      setLoading(false)
-    }
+      onResult(await res.json())
+    } catch { alert("Failed to connect to backend") }
+    finally { setLoading(false) }
   }
 
   const fileExt: Record<string, string> = {
-    python: "py", javascript: "js", typescript: "ts",
-    java: "java", cpp: "cpp", rust: "rs"
+    python: "py", javascript: "js", typescript: "ts", java: "java", cpp: "cpp", rust: "rs"
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      backgroundColor: "#1e1e1e",
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-      color: "#d4d4d4"
-    }}>
-
-      {/* TOP BAR */}
-      <div style={{
-        backgroundColor: "#007acc",
-        padding: "4px 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between"
-      }}>
-        <span style={{ fontSize: "12px", color: "#ffffff", letterSpacing: "0.03em" }}>
-          debugger-agent
-        </span>
-        <div style={{ display: "flex", gap: "16px" }}>
-          {["perception", "agents", "redis", "sandbox"].map(item => (
-            <span key={item} style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)" }}>
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* HERO */}
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "5rem 1rem 3.5rem",
-        textAlign: "center",
-        borderBottom: "1px solid #3e3e42"
-      }}>
-        <div style={{
-          width: "72px",
-          height: "72px",
-          borderRadius: "16px",
-          backgroundColor: "#252526",
-          border: "1px solid #3e3e42",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: "1.5rem",
-          fontSize: "34px"
-        }}>
-          🐛
-        </div>
-
-        <h1 style={{
-          fontSize: "40px",
-          fontWeight: "500",
-          margin: "0",
-          letterSpacing: "-0.02em",
-          lineHeight: 1.1
-        }}>
-          <span style={{ color: "#569cd6" }}>debugger</span>
-          <span style={{ color: "#3e3e42" }}>.</span>
-          <span style={{ color: "#dcdcaa" }}>agent</span>
-          <span style={{ color: "#6a6a6a", fontSize: "28px" }}>()</span>
-        </h1>
-
-        <p style={{
-          fontSize: "14px",
-          color: "#6a9955",
-          margin: "1.25rem 0 0 0",
-          height: "22px",
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.4s ease",
-          letterSpacing: "0.02em"
-        }}>
-           {TAGLINES[taglineIndex]}
-        </p>
-
-        <div style={{
-          display: "flex",
-          gap: "8px",
-          marginTop: "2rem",
-          flexWrap: "wrap",
-          justifyContent: "center"
-        }}>
-          {[
-            { label: "multimodal", color: "#c586c0" },
-            { label: "multi-agent", color: "#569cd6" },
-            { label: "vision AI", color: "#4ec9b0" },
-            { label: "sandboxed execution", color: "#e5c07b" },
-            { label: "vector memory", color: "#98c379" },
-          ].map(({ label, color }) => (
-            <span key={label} style={{
-              backgroundColor: "#252526",
-              border: "1px solid #3e3e42",
-              borderRadius: "20px",
-              padding: "4px 14px",
-              fontSize: "11px",
-              color,
-              letterSpacing: "0.04em"
-            }}>
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* INPUT SECTION */}
-      <div style={{
-        maxWidth: "820px",
-        margin: "0 auto",
-        padding: "3rem 1.5rem 5rem"
-      }}>
-
-        {/* Window chrome */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "1.5rem"
-        }}>
-          {["#f14c4c", "#e5c07b", "#98c379"].map(color => (
-            <div key={color} style={{
-              width: "12px", height: "12px",
-              borderRadius: "50%",
-              backgroundColor: color
-            }} />
-          ))}
-          <span style={{ marginLeft: "8px", color: "#5a5a5a", fontSize: "12px" }}>
-            debug_session.{fileExt[language] || "py"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-
-          {/* Language */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ color: "#c586c0", fontSize: "13px" }}>language</span>
-            <span style={{ color: "#d4d4d4", fontSize: "13px" }}>=</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              style={{
-                backgroundColor: "#252526",
-                border: "1px solid #3e3e42",
-                borderRadius: "4px",
-                color: "#ce9178",
-                padding: "5px 10px",
-                fontSize: "13px",
-                fontFamily: "inherit",
-                cursor: "pointer",
-                outline: "none"
-              }}
-            >
-              {Object.keys(fileExt).map(lang => (
-                <option key={lang} value={lang}>{lang}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Code editor */}
-          <div style={{ border: "1px solid #3e3e42", borderRadius: "6px", overflow: "hidden" }}>
-            <div style={{
-              backgroundColor: "#252526",
-              borderBottom: "1px solid #3e3e42",
-              display: "flex"
-            }}>
-              <div style={{
-                padding: "7px 16px",
-                fontSize: "13px",
-                color: "#d4d4d4",
-                borderBottom: "1px solid #007acc",
-                backgroundColor: "#1e1e1e"
-              }}>
-                bug.{fileExt[language] || "py"}
-              </div>
-            </div>
-            <div style={{ display: "flex", backgroundColor: "#1e1e1e" }}>
-              <div style={{
-                color: "#5a5a5a",
-                fontSize: "13px",
-                padding: "12px 10px",
-                minWidth: "44px",
-                textAlign: "right",
-                userSelect: "none",
-                lineHeight: "1.6",
-                borderRight: "1px solid #3e3e42"
-              }}>
-                {Array.from(
-                  { length: Math.max(12, code.split("\n").length + 3) },
-                  (_, i) => <div key={i}>{i + 1}</div>
-                )}
-              </div>
-              <textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder={`# paste your ${language} code here\n# the agent will analyze it for bugs`}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#1e1e1e",
-                  border: "none",
-                  color: "#d4d4d4",
-                  fontSize: "13px",
-                  fontFamily: "inherit",
-                  lineHeight: "1.6",
-                  padding: "12px",
-                  minHeight: "220px",
-                  resize: "vertical",
-                  outline: "none",
-                  caretColor: "#aeafad"
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            backgroundColor: "#252526",
-            border: "1px solid #3e3e42",
-            borderRadius: "6px",
-            padding: "10px 14px"
-          }}>
-            <span style={{ color: "#6a9955", fontSize: "13px", userSelect: "none" }}>#</span>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="what's the bug? what did you expect to happen?"
-              style={{
-                flex: 1,
-                backgroundColor: "transparent",
-                border: "none",
-                color: "#d4d4d4",
-                fontSize: "13px",
-                fontFamily: "inherit",
-                outline: "none"
-              }}
-            />
-          </div>
-
-          {/* Drop zone */}
-          <div
-            onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onClick={() => document.getElementById("fileInput")?.click()}
-            style={{
-              border: `1px dashed ${dragOver ? "#007acc" : "#3e3e42"}`,
-              borderRadius: "6px",
-              padding: "24px",
-              textAlign: "center",
-              backgroundColor: dragOver ? "#04395e" : "#252526",
-              transition: "all 0.15s ease",
-              cursor: "pointer"
-            }}
-          >
-            <input
-              id="fileInput"
-              type="file"
-              accept="image/*"
-              onChange={handleFileInput}
-              style={{ display: "none" }}
-            />
-            {images.length > 0 ? (
-              <div style={{ color: "#98c379", fontSize: "13px" }}>
-                ✓ {images.length} screenshot{images.length > 1 ? "s" : ""} attached
-                <span
-                  onClick={(e) => { e.stopPropagation(); setImages([]) }}
-                  style={{ marginLeft: "12px", color: "#f14c4c", cursor: "pointer", fontSize: "12px" }}
-                >
-                  [clear]
-                </span>
-              </div>
-            ) : (
-              <div>
-                <div style={{ color: "#5a5a5a", fontSize: "13px", marginBottom: "4px" }}>
-                  drop error screenshot here
-                </div>
-                <div style={{ color: "#3e3e42", fontSize: "11px" }}>
-                  or <span style={{ color: "#007acc" }}>click to browse</span> — png, jpg, gif
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              backgroundColor: loading ? "#252526" : "#007acc",
-              border: `1px solid ${loading ? "#3e3e42" : "#007acc"}`,
-              borderRadius: "6px",
-              color: loading ? "#5a5a5a" : "#ffffff",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontSize: "13px",
-              fontFamily: "inherit",
-              fontWeight: "500",
-              padding: "14px 24px",
-              width: "100%",
-              letterSpacing: "0.06em",
-              transition: "all 0.15s ease"
-            }}
-          >
-            {loading ? "► running agents..." : "► run debugger"}
-          </button>
-
-        </div>
-      </div>
-    </div>
+   
+        
+         <div style={{
+           flex: 1,
+           display: "flex",
+           flexDirection: "column",
+           alignItems: "center",
+           justifyContent: "flex-end",
+           padding: "2rem 1.5rem",
+           overflow: "hidden",
+           backgroundColor: "#1e1e1e",
+           position: "relative"
+         }}>
+   
+           {/* HERO — shown in idle AND running (no blank space during processing) */}
+           {(appState === "idle" || appState === "running") && (
+             <div style={{
+               textAlign: "center",
+               marginBottom: "2rem",
+               width: "100%", maxWidth: "760px",
+               flexShrink: 0
+             }}>
+               <div style={{
+                 width: "56px", height: "56px", borderRadius: "14px",
+                 backgroundColor: "#252526", border: "1px solid #3e3e42",
+                 display: "flex", alignItems: "center", justifyContent: "center",
+                 fontSize: "26px", margin: "0 auto 0.75rem"
+               }}>🐛</div>
+               <h1 style={{ fontSize: "32px", fontWeight: "500", margin: "0 0 0.5rem", letterSpacing: "-0.02em" }}>
+                 <span style={{ color: "#569cd6" }}>debugger</span>
+                 <span style={{ color: "#3e3e42" }}>.</span>
+                 <span style={{ color: "#dcdcaa" }}>agent</span>
+                 <span style={{ color: "#6a6a6a", fontSize: "22px" }}>()</span>
+               </h1>
+               {appState === "idle" && (
+                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", marginTop: "0.75rem" }}>
+                   {[
+                     { label: "multimodal", color: "#c586c0" },
+                     { label: "multi-agent", color: "#569cd6" },
+                     { label: "vision AI", color: "#4ec9b0" },
+                     { label: "sandboxed", color: "#e5c07b" },
+                     { label: "vector memory", color: "#98c379" },
+                   ].map(({ label, color }) => (
+                     <span key={label} style={{
+                       backgroundColor: "#252526", border: "1px solid #3e3e42",
+                       borderRadius: "20px", padding: "3px 12px",
+                       fontSize: "11px", color, letterSpacing: "0.04em"
+                     }}>{label}</span>
+                   ))}
+                 </div>
+               )}
+               {appState === "running" && (
+                 <p style={{ color: "#6a9955", fontSize: "12px", margin: "0.5rem 0 0" }}>
+                    agents analyzing your code...
+                 </p>
+               )}
+             </div>
+           )}
+   
+           {/* MAIN BOX — anchored at bottom, expands upward */}
+           <div style={{
+             width: "100%", maxWidth: "760px",
+             display: "flex", flexDirection: "column",
+             maxHeight: "calc(100vh - 140px)",
+             overflow: "visible"
+           }}>
+   
+             {/* RESULTS / CODE — scrollable area above input */}
+             {(appState === "running" || appState === "done") && (
+               <div style={{
+             backgroundColor: "#1c1c1c",
+                 border: "1px solid #2a2a2a",
+                 borderBottom: "none",
+                 borderRadius: "14px 14px 0 0",
+                 padding: "1.25rem 1.5rem",
+                 display: "flex", flexDirection: "column", gap: "12px",
+                 height: appState === "running" ? "45vh" : "auto",
+                 maxHeight: "90vh",
+                 overflowY: "scroll",
+                 transition: "height 0.8s ease, max-height 0.6s ease",
+                 scrollbarWidth: "thin" as const,
+                 scrollbarColor: "#007acc transparent" as any
+               }}>
+   
+                 {/* Running — code display */}
+                 {appState === "running" && (
+                   <div style={{
+                     backgroundColor: "#252526", border: "1px solid #3e3e42",
+                     borderRadius: "8px", overflow: "hidden"
+                   }}>
+                     <div style={{
+                       backgroundColor: "#2d2d2d", borderBottom: "1px solid #2a2a2a",
+                       padding: "6px 14px", fontSize: "12px", color: "#d4d4d4",
+                       display: "flex", alignItems: "center", justifyContent: "space-between"
+                     }}>
+                       <span style={{ borderBottom: "1px solid #007acc", paddingBottom: "1px" }}>
+                         bug.{fileExt[language] || "py"}
+                       </span>
+                       <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#007acc", fontSize: "11px" }}>
+                         <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>
+                         processing...
+                       </div>
+                     </div>
+                     <div style={{ display: "flex" }}>
+                       <div style={{
+                         color: "#5a5a5a", fontSize: "12px", padding: "10px 8px",
+                         minWidth: "36px", textAlign: "right", userSelect: "none",
+                         lineHeight: "1.6", borderRight: "1px solid #2a2a2a"
+                       }}>
+                         {code.split("\n").map((_, i) => <div key={i}>{i + 1}</div>)}
+                       </div>
+                       <pre style={{
+                         flex: 1, margin: 0, padding: "10px 14px",
+                         fontSize: "13px", color: "#d4d4d4",
+                         lineHeight: "1.6", whiteSpace: "pre-wrap", wordBreak: "break-word"
+                       }}>{code}</pre>
+                     </div>
+                   </div>
+                 )}
+   
+                 {/* Done — results */}
+                 {appState === "done" && result && (
+                   <>
+                     {result.root_cause && (
+                       <div style={{
+                         backgroundColor: "#252526", border: "1px solid #3e3e42",
+                         borderRadius: "8px", padding: "14px 18px"
+                       }}>
+                         <div style={{ color: "#f14c4c", fontSize: "10px", letterSpacing: "0.1em", marginBottom: "8px", fontWeight: "600" }}>
+                           ROOT CAUSE
+                         </div>
+                         <div style={{ color: "#d4d4d4", fontSize: "13px", lineHeight: "1.7" }}>
+                           {result.root_cause.split("\n")[0].replace("ROOT_CAUSE: ", "")}
+                         </div>
+                       </div>
+                     )}
+   
+                     {result.explanation && (
+                       <div style={{
+                         backgroundColor: "#252526", border: "1px solid #3e3e42",
+                         borderRadius: "8px", padding: "14px 18px"
+                       }}>
+                         <div style={{ color: "#569cd6", fontSize: "10px", letterSpacing: "0.1em", marginBottom: "8px", fontWeight: "600" }}>
+                           EXPLANATION
+                         </div>
+                         <div style={{ color: "#d4d4d4", fontSize: "13px", lineHeight: "1.7" }}>
+                           {result.explanation}
+                         </div>
+                       </div>
+                     )}
+   
+                     {/* DiffViewer */}
+                     {result.patch && (
+                       <DiffViewer diff={result.patch} explanation={undefined} confidence={result.confidence} />
+                     )}
+   
+                     {result.tests && result.tests.length > 0 && (
+                       <div style={{
+                         backgroundColor: "#252526", border: "1px solid #3e3e42",
+                         borderLeft: "3px solid #98c379", borderRadius: "8px", overflow: "hidden"
+                       }}>
+                         <div style={{
+                           backgroundColor: "#2d2d2d", padding: "7px 16px",
+                           borderBottom: "1px solid #3e3e42",
+                           display: "flex", justifyContent: "space-between", alignItems: "center"
+                         }}>
+                           <span style={{ color: "#98c379", fontSize: "12px" }}>generated tests</span>
+                           <span style={{ color: "#5a5a5a", fontSize: "11px" }}>test_fix.py</span>
+                         </div>
+                         <pre style={{
+                           margin: 0, padding: "14px 18px", color: "#d4d4d4",
+                           fontSize: "12px", lineHeight: "1.7", whiteSpace: "pre-wrap"
+                         }}>{result.tests[0]}</pre>
+                       </div>
+                     )}
+   
+                     {result.confidence !== undefined && (
+                       <div style={{
+                         backgroundColor: "#252526", border: "1px solid #3e3e42",
+                         borderRadius: "8px", padding: "12px 18px",
+                         display: "flex", alignItems: "center", gap: "16px"
+                       }}>
+                         <span style={{ color: "#5a5a5a", fontSize: "12px", minWidth: "80px" }}>confidence</span>
+                         <div style={{ flex: 1, height: "5px", backgroundColor: "#3e3e42", borderRadius: "3px", overflow: "hidden" }}>
+                           <div style={{
+                             height: "100%", width: `${(result.confidence || 0) * 100}%`,
+                             backgroundColor: (result.confidence || 0) >= 0.8 ? "#98c379" : "#e5c07b",
+                             borderRadius: "3px", transition: "width 0.8s ease"
+                           }} />
+                         </div>
+                         <span style={{
+                           fontSize: "12px", minWidth: "35px",
+                           color: (result.confidence || 0) >= 0.8 ? "#98c379" : "#e5c07b"
+                         }}>
+                           {Math.round((result.confidence || 0) * 100)}%
+                         </span>
+                       </div>
+                     )}
+                   </>
+                 )}
+               </div>
+             )}
+   
+             {/* INPUT PILL — always at bottom */}
+             <div style={{
+               backgroundColor: "#252526",
+               border: "1px solid #3e3e42",
+               borderRadius: appState === "idle" ? "16px" : "0 0 16px 16px",
+               overflow: "hidden", flexShrink: 0,
+               boxShadow: "0 0 40px rgba(0,122,204,0.06)"
+             }}>
+   
+               {/* Tab + code — only idle */}
+               {appState === "idle" && (
+                 <>
+                   <div style={{
+                     backgroundColor: "#2d2d2d", borderBottom: "1px solid #3e3e42",
+                     display: "flex", alignItems: "center", padding: "0 12px"
+                   }}>
+                     <div style={{
+                       padding: "7px 16px", fontSize: "12px", color: "#d4d4d4",
+                       borderBottom: "1px solid #007acc", backgroundColor: "#252526"
+                     }}>
+                       bug.{fileExt[language] || "py"}
+                     </div>
+                     <div style={{ flex: 1 }} />
+                     <div style={{
+                       width: "100px", height: "8px",
+                       background: "radial-gradient(ellipse, rgba(152,195,121,0.25) 0%, transparent 70%)"
+                     }} />
+                   </div>
+                   <div style={{ display: "flex", backgroundColor: "#1e1e1e" }}>
+                     <div style={{
+                       color: "#5a5a5a", fontSize: "12px", padding: "12px 8px",
+                       minWidth: "40px", textAlign: "right", userSelect: "none",
+                       lineHeight: "1.6", borderRight: "1px solid #2a2a2a"
+                     }}>
+                       {Array.from({ length: Math.max(8, code.split("\n").length + 2) }, (_, i) => (
+                         <div key={i}>{i + 1}</div>
+                       ))}
+                     </div>
+                     <textarea
+                       value={code}
+                       onChange={e => setCode(e.target.value)}
+                       placeholder={"# paste your code here\n# the agent will analyze it for bugs"}
+                       style={{
+                         flex: 1, backgroundColor: "transparent", border: "none",
+                         color: "#d4d4d4", fontSize: "13px", fontFamily: "inherit",
+                         lineHeight: "1.6", padding: "12px", minHeight: "180px",
+                         resize: "vertical", outline: "none", caretColor: "#aeafad"
+                       }}
+                     />
+                   </div>
+                 </>
+               )}
+   
+               {/* Bottom bar */}
+               <div style={{
+                 display: "flex", alignItems: "center", gap: "8px",
+                 padding: "10px 12px", borderTop: "1px solid #2a2a2a",
+                 backgroundColor: "#252526"
+               }}>
+   
+                 {/* Camera icon — pink blur */}
+                 <div
+                   onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) handleImageUpload(f) }}
+                   onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                   onDragLeave={() => setDragOver(false)}
+                   onClick={() => document.getElementById("imgInput")?.click()}
+                   style={{
+                     width: "34px", height: "34px", borderRadius: "8px",
+                     background: dragOver ? "rgba(197,134,192,0.3)" : "radial-gradient(ellipse, rgba(197,134,192,0.15) 0%, transparent 70%)",
+                     border: `1px solid ${images.length > 0 ? "#c586c0" : "#3e3e42"}`,
+                     display: "flex", alignItems: "center", justifyContent: "center",
+                     cursor: "pointer", flexShrink: 0, transition: "all 0.15s"
+                   }}
+                 >
+                   <input id="imgInput" type="file" accept="image/*" style={{ display: "none" }}
+                     onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }} />
+                   {images.length > 0 ? (
+                     <span style={{ color: "#c586c0", fontSize: "10px", fontWeight: "bold" }}>{images.length}</span>
+                   ) : (
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c586c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                       <circle cx="12" cy="13" r="4"/>
+                     </svg>
+                   )}
+                 </div>
+   
+                 {/* Description — blue blur */}
+                 <div style={{
+                   flex: 1,
+                   background: "radial-gradient(ellipse at left, rgba(86,156,214,0.08) 0%, transparent 60%)",
+                   border: "1px solid #3e3e42", borderRadius: "8px",
+                   display: "flex", alignItems: "center", padding: "0 10px", height: "34px"
+                 }}>
+                   <span style={{ color: "#6a9955", fontSize: "12px", marginRight: "6px" }}>#</span>
+                   <input
+                     value={description}
+                     onChange={e => setDescription(e.target.value)}
+                     placeholder="describe the bug..."
+                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && appState === "idle") handleSubmit() }}
+                     style={{
+                       flex: 1, backgroundColor: "transparent", border: "none",
+                       color: "#d4d4d4", fontSize: "12px", fontFamily: "inherit", outline: "none"
+                     }}
+                   />
+                 </div>
+   
+                 {/* Language */}
+                 <select value={language} onChange={e => setLanguage(e.target.value)} style={{
+                   backgroundColor: "#1e1e1e", border: "1px solid #3e3e42",
+                   borderRadius: "6px", color: "#ce9178", padding: "6px 8px",
+                   fontSize: "11px", fontFamily: "inherit", cursor: "pointer", outline: "none"
+                 }}>
+                   {Object.keys(fileExt).map(lang => <option key={lang} value={lang}>{lang}</option>)}
+                 </select>
+   
+                 {/* Debug / new */}
+                 {appState === "done" ? (
+                   <button onClick={onNewSession} style={{
+                     backgroundColor: "transparent", border: "1px solid #3e3e42",
+                     borderRadius: "8px", color: "#6a9955", cursor: "pointer",
+                     fontSize: "11px", fontFamily: "inherit", padding: "7px 12px", flexShrink: 0
+                   }}>+ new</button>
+                 ) : (
+                   <button
+                     onClick={appState === "idle" ? handleSubmit : undefined}
+                     disabled={appState === "running"}
+                     style={{
+                       backgroundColor: appState === "running" ? "#252526" : "#007acc",
+                       border: `1px solid ${appState === "running" ? "#3e3e42" : "#007acc"}`,
+                       borderRadius: "8px", color: appState === "running" ? "#5a5a5a" : "#fff",
+                       cursor: appState === "running" ? "not-allowed" : "pointer",
+                       fontSize: "12px", fontFamily: "inherit", fontWeight: "600",
+                       padding: "7px 14px", display: "flex", alignItems: "center",
+                       gap: "6px", flexShrink: 0, transition: "all 0.15s"
+                     }}
+                   >
+                     <span>{appState === "running" ? "⟳" : "🐛"}</span>
+                     <span>{appState === "running" ? "running..." : "Debug"}</span>
+                   </button>
+                 )}
+               </div>
+             </div>
+           </div>
+         </div>
+   
   )
 }
