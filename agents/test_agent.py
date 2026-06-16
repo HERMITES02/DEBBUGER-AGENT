@@ -1,16 +1,13 @@
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
+from agents.model_router import get_model_for_agent
 from tools.sandbox import execute_code
 from dotenv import load_dotenv
 import os, re
 
 load_dotenv()
 
-llm = ChatAnthropic(
-    model="claude-sonnet-4-20250514",
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-    max_tokens=1024,
-)
+
 
 def extract_code_block(text: str) -> str:
     """Extract the first ```python block from Claude's response."""
@@ -47,8 +44,13 @@ Write pytest test cases that:
 Return ONLY a ```python code block containing the complete test file.
 Include the fixed function definition at the top so tests are self-contained.
 Use simple assert statements. No mocking needed."""
-
+    
     response = await llm.ainvoke([HumanMessage(content=prompt)])
+    llm = ChatAnthropic(
+    model=      get_model_for_agent("test_agent"),   # → haiku
+    api_key=    os.getenv("ANTHROPIC_API_KEY"),
+    max_tokens= 512,
+)
     return extract_code_block(response.content)
 
 async def run_test_agent(

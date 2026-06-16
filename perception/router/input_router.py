@@ -4,6 +4,7 @@ import asyncio, base64, re, sys
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
+from httpcore import request
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from shared.schema import DebugRequest, AgentMessage
 from perception.agents.vision_agent import run_vision_agent
@@ -80,11 +81,25 @@ async def route_final(request: DebugRequest) -> dict:
 
     results = await dispatch(request)
 
+   
+    vision_result = None
+    code_result   = None
+
+    for r in results:
+        if isinstance(r, dict):
+            if r.get("agent_id") == "vision_agent":
+                # unwrap the extractions from content
+                vision_result = r.get("content", {}).get("extractions", [None])[0]
+            elif r.get("agent_id") == "code_analysis_agent":
+                code_result = r.get("content") or r
+
     return {
         "session_id":          request.session_id,
         "modalities_detected": modalities,
         "agents_fired":        len(results),
-        "context":             results[0] if results else None,
+        "vision_result":       vision_result,   # ← orchestrator reads this key
+        "code_result":         code_result,     # ← orchestrator reads this key
+        "context":             None,            # ← context_builder result if needed
     }
 
 app = FastAPI()

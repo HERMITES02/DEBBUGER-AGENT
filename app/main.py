@@ -1,25 +1,31 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from tools.redis_publisher import close_redis
-from tools.redis_publisher import get_redis
+from tools.redis_publisher import close_redis, get_redis
 from contextlib import asynccontextmanager
+from app.auth.routes import router as auth_router
+from app.auth.models import init_db
+from app.auth.jwt import get_current_user
+from app.memory.session_store import save_session, get_user_context
+from app.scoring.confidence import calculate_confidence
 from dotenv import load_dotenv
 import json, os
 
 load_dotenv()
+
 from shared.schema import DebugRequest, DebugResult
 from agents.orchestrator import orchestrator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    await init_db()
+    print("[startup] Database tables created")
     try:
         r = await get_redis()
         await r.ping()
         print("[startup] Redis connection OK")
     except Exception as e:
         print(f"[startup] WARNING: Redis not reachable — {e}")
-        print("[startup] Agent streaming will not work without Redis")
 
     yield
 
@@ -36,18 +42,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Add these two lifecycle events to main.py
-
+app.include_router(auth_router)
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
+# ── /debug — protected, with memory + confidence ──────────────────────────────
 @app.post("/debug", response_model=DebugResult)
-async def debug(req: DebugRequest):
+async def debug(
+    req:          DebugRequest,
+    current_user: dict = Depends(get_current_user)   # ← auth here, NOT nested
+):
+    user_id = current_user["sub"]
+    print(f"[debug] user: {user_id}")
+
+    # Load user's past session context for better analysis
+    user_context = await get_user_context(user_id)
+
     result = await orchestrator.ainvoke({
-        # ── original fields ──
         "messages":          [],
         "user_request":      req.user_message,
         "root_cause":        "",
@@ -61,41 +74,155 @@ async def debug(req: DebugRequest):
         "modalities":        None,
         "search_results":    None,
         "sandbox_result":    None,
-        # ── new week 3 fields ──
         "patch_diff":        None,
         "patch_explanation": None,
         "test_code":         None,
         "tests_passed":      None,
         "test_output":       None,
-        "vision_result":   None,  # ← add
-    "code_analysis":   None,  # ← add
-    "context_summary": None,  # ← add
+        "vision_result":     None,
+        "code_analysis":     None,
+        "context_summary":   None,
+        "user_id":           user_id,
+        "user_context":      user_context,   # ← past sessions
+        "confidence":     None,  
     })
 
-    return DebugResult(
+    # Real multi-factor confidence score
+    confidence = result.get("confidence", 0.0)
+
+    debug_result = DebugResult(
         session_id=  req.session_id or "default-session",
         root_cause=  result["root_cause"],
-        # ── updated: now returns real patch diff instead of empty string ──
         patch=       result.get("patch_diff") or "",
-        # ── updated: now returns patch explanation instead of root_cause ──
         explanation= result.get("patch_explanation") or "",
-        # ── new: returns generated test code ──
         tests=       [result["test_code"]] if result.get("test_code") else [],
-        # ── new: 0.9 if tests passed, 0.6 if they failed or didn't run ──
-        confidence=  0.9 if result.get("tests_passed") else 0.6,
+        confidence=  confidence,
     )
 
+    # Save session under this user for future memory
+    await save_session(
+        user_id=    user_id,
+        session_id= req.session_id or "default-session",
+        result=     result,
+        request=    req.model_dump(),
+    )
+
+    return debug_result
+
+# ── Session history endpoints ─────────────────────────────────────────────────
+@app.get("/sessions")
+async def get_sessions(current_user: dict = Depends(get_current_user)):
+    from app.memory.session_store import get_user_sessions
+    sessions = await get_user_sessions(current_user["sub"])
+    return {"sessions": sessions}
+
+@app.get("/sessions/{session_id}")
+async def get_session(
+    session_id:   str,
+    current_user: dict = Depends(get_current_user)
+):
+    from app.memory.session_store import get_session_result
+    from fastapi import HTTPException
+    result = await get_session_result(session_id)
+    if not result:
+        raise HTTPException(404, "Session not found")
+    return result
+
+# ── WebSocket — live agent streaming ─────────────────────────────────────────
 @app.websocket("/ws/debug")
 async def ws_debug(ws: WebSocket):
     await ws.accept()
     try:
-        while True:
-            data = await ws.receive_text()
-            req = DebugRequest(**json.loads(data))
-            await ws.send_json({
-                "agent_id": "orchestrator",
-                "type":     "thinking",
-                "payload":  f"Received request: {req.user_message}",
+        data = await ws.receive_text()
+        req = DebugRequest(**json.loads(data))
+        session_id = req.session_id or "default-session"
+
+        r = await get_redis()
+        pubsub = r.pubsub()
+        await pubsub.subscribe(f"agent:events:{session_id}")
+
+        import asyncio
+
+        async def run_orchestrator():
+            await orchestrator.ainvoke({
+                "messages":          [],
+                "user_request":      req.user_message,
+                "root_cause":        "",
+                "patch":             "",
+                "done":              False,
+                "session_id":        session_id,
+                "code":              req.code,
+                "logs":              req.logs,
+                "language":          req.language,
+                "images":            req.images,
+                "modalities":        None,
+                "search_results":    None,
+                "sandbox_result":    None,
+                "patch_diff":        None,
+                "patch_explanation": None,
+                "test_code":         None,
+                "tests_passed":      None,
+                "test_output":       None,
+                "vision_result":     None,
+                "code_analysis":     None,
+                "context_summary":   None,
+                "user_id":           None,
+                "user_context":      None,
             })
+            await r.publish(
+                f"agent:events:{session_id}",
+                json.dumps({"type": "done", "session_id": session_id})
+            )
+
+        task = asyncio.create_task(run_orchestrator())
+
+        async for message in pubsub.listen():
+            if message["type"] != "message":
+                continue
+            msg_data = json.loads(message["data"])
+            await ws.send_json(msg_data)
+            if msg_data.get("type") == "done":
+                break
+
+        await pubsub.unsubscribe(f"agent:events:{session_id}")
+        await task
+
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("[ws] client disconnected")
+    except Exception as e:
+        print(f"[ws] error: {e}")
+        try:
+            await ws.send_json({"type": "error", "payload": str(e)})
+        except:
+            pass
+@app.websocket("/ws/events/{session_id}")
+async def ws_events(ws: WebSocket, session_id: str):
+    """
+    Subscribe-only WebSocket.
+    Frontend connects here to receive live agent events for a session.
+    The orchestrator is triggered separately via POST /debug.
+    """
+    await ws.accept()
+    print(f"[ws:events] client connected — session: {session_id}")
+
+    r = await get_redis()
+    pubsub = r.pubsub()
+    await pubsub.subscribe(f"agent:events:{session_id}")
+
+    try:
+        async for message in pubsub.listen():
+            if message["type"] != "message":
+                continue
+            data = json.loads(message["data"])
+            await ws.send_json(data)
+            if data.get("type") == "done":
+                break
+
+    except WebSocketDisconnect:
+        print(f"[ws:events] client disconnected — session: {session_id}")
+    except Exception as e:
+        print(f"[ws:events] error: {e}")
+    finally:
+        await pubsub.unsubscribe(f"agent:events:{session_id}")
+        await r.aclose()
+        print(f"[ws:events] closed — session: {session_id}")

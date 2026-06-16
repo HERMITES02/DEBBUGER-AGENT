@@ -16,4 +16,9 @@ tavily-python==0.3.9
 chromadb==0.5.3
 sentence-transformers==3.0.1
 celery==5.3.0
-redis-py==5.0.4
+
+python-jose[cryptography]==3.3.0  # JWT
+passlib[bcrypt]==1.7.4           # password hashing
+python-multipart==0.0.9          # form data for login
+sqlalchemy==2.0.30               # user DB ORM
+aiosqlite==0.20.0

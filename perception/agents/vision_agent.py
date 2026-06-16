@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
+from agents.model_router import get_model_for_agent
 from shared.schema import DebugRequest, AgentMessage
 from dotenv import load_dotenv
 from anthropic import Anthropic, APIError, APITimeoutError
@@ -55,8 +56,8 @@ def extract_from_image(image_base64: str) -> dict:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=500,
+            model=      get_model_for_agent("vision_agent"),  # → sonnet (needs vision)
+    max_tokens= 500,
             system=SYSTEM_PROMPT,
             messages=[
                 {

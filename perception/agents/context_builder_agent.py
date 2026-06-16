@@ -1,5 +1,7 @@
 import sys, asyncio, json, os
 from pathlib import Path
+
+from agents.model_router import get_model_for_agent
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from anthropic import AsyncAnthropic          # ← async
@@ -64,8 +66,8 @@ async def assemble_with_claude(
 ) -> dict:
     try:
         response = await client.messages.create(
-            model="claude-sonnet-4-20250514",   # ← correct model string
-            max_tokens=500,
+            model=      get_model_for_agent("context_builder_agent"),  # → haiku
+    max_tokens= 300,
             system=SYSTEM_PROMPT,
             messages=[{
                 "role": "user",

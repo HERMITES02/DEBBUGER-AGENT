@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 interface Session {
   id: string
@@ -30,6 +30,8 @@ export default function Sidebar({
   const [expanded, setExpanded] = useState(false)
   const [search, setSearch] = useState("")
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [mounted, setMounted] = useState(false)
+useEffect(() => setMounted(true), [])
 
   const filtered = sessions.filter(s =>
     s.title.toLowerCase().includes(search.toLowerCase())

@@ -4,10 +4,12 @@ import { useState } from "react"
 
 interface AuthModalProps {
   onClose: () => void
-  onLogin: (user: { name: string; email: string }) => void
+  onLogin: (user: { name: string; email: string; token: string; user_id: string }) => void
+  onApiLogin:    (email: string, password: string) => Promise<{ token: string; user_id: string; username: string }>
+  onApiRegister: (email: string, username: string, password: string) => Promise<{ token: string; user_id: string; username: string }>
 }
 
-export default function AuthModal({ onClose, onLogin }: AuthModalProps) {
+export default function AuthModal({ onClose, onLogin, onApiLogin, onApiRegister }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -15,32 +17,24 @@ export default function AuthModal({ onClose, onLogin }: AuthModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const handleSubmit = async () => {
-    if (!email || !password) { setError("Please fill all fields"); return }
-    if (mode === "signup" && !name) { setError("Please enter your name"); return }
-
-    setLoading(true)
-    setError("")
-
-    // Mock auth — replace with real API call later
-    await new Promise(r => setTimeout(r, 800))
-
-    // TODO: replace with real MongoDB auth
-    // const res = await fetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) })
-    // const data = await res.json()
-
-    const user = {
-      name: mode === "signup" ? name : email.split("@")[0],
-      email
-    }
-
-    // Store in localStorage for session persistence
+ const handleSubmit = async () => {
+  if (!email || !password) { setError("Please fill all fields"); return }
+  if (mode === "signup" && !name) { setError("Please enter your name"); return }
+  setLoading(true); setError("")
+  try {
+    const data = mode === "signup"
+      ? await onApiRegister(email, name, password)
+      : await onApiLogin(email, password)
+    const user = { name: data.username, email, token: data.token, user_id: data.user_id }
     localStorage.setItem("debugger_user", JSON.stringify(user))
-
-    setLoading(false)
     onLogin(user)
     onClose()
+  } catch (err: any) {
+    setError(err.message || "Auth failed")
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <>
