@@ -120,15 +120,15 @@ export function useDebugger() {
   const [result, setResult]           = useState<DebugResult | null>(null)
   const [sessions, setSessions]       = useState<Session[]>([])
   const [showAuth, setShowAuth]       = useState(false)
-  const [error, setError]             = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("debugger_user")
-      return stored ? JSON.parse(stored) : null
-    }
-    return null
-  })
+  const [user, setUser] = useState<User | null>(null)
+
+useEffect(() => {
+  const stored = localStorage.getItem("debugger_user")
+  if (stored) setUser(JSON.parse(stored))
+}, [])
 
   // Called by ChatInput when user clicks "run debugger"
   const handleStart = async (
@@ -138,11 +138,7 @@ export function useDebugger() {
     lang: string = "python",
     imgs: string[] = [],
   ) => {
-    // Block if not logged in
-    if (!user) {
-      setShowAuth(true)
-      return
-    }
+    
 
     setSessionId(sid)
     setCode(c)
@@ -179,6 +175,12 @@ const handleResult = (data: DebugResult) => {
       const filtered = prev.filter(s => s.id !== newSession.id)
       return [newSession, ...filtered.slice(0, 49)]
     })
+  } else {
+    // show message after short delay so results appear first
+    setTimeout(() => {
+      setShowLoginPrompt(true)
+    }, 1000)
+    
   }
 }
 
@@ -220,9 +222,9 @@ useEffect(() => {
 }, [user?.token])
   return {
     appState, sessionId, code, description, language, images,
-    result, sessions, showAuth, user, error,
+    result, sessions, showAuth, user, error, showLoginPrompt,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout,
+    handleLogin, handleLogout, setShowLoginPrompt
   }
 }

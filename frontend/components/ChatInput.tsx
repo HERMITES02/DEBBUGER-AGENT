@@ -64,56 +64,6 @@ export default function ChatInput({ appState, code: parentCode, description: par
 
     // ✅ pass language + images array (not images.length)
     onStart(sessionId, code, description, language, images)
-
-    // Mock mode — simulate delay then return mock result
-
-
-    try {
-      // ✅ read JWT token from localStorage
-      const stored = localStorage.getItem("debugger_user")
-      const token = stored ? JSON.parse(stored).token : null
-
-      if (!token) {
-        alert("Please log in first")
-        setLoading(false)
-        return
-      }
-      console.log("[ChatInput] sending images:", images.length, "images")
-console.log("[ChatInput] first image preview:", images[0]?.slice(0, 50))
-      const res = await fetch("http://localhost:8000/debug", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,   // ✅ auth header
-        },
-        body: JSON.stringify({
-          user_message: description,
-          code: code || null,
-          language,
-          images: images.map(img => img.includes(",") ? img.split(",")[1] : img),  // ✅ strip prefix
-          session_id: sessionId,
-        }),
-      })
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          alert("Session expired — please log in again")
-          localStorage.removeItem("debugger_user")
-          setLoading(false)
-          return
-        }
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `Server error ${res.status}`)
-      }
-
-      onResult(await res.json())
-
-    } catch (err: any) {
-      console.error("[ChatInput] error:", err)
-      alert(err.message || "Failed to connect to backend")
-    } finally {
-      setLoading(false)
-    }
   }
 
   const fileExt: Record<string, string> = {

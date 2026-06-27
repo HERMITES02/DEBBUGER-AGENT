@@ -10,10 +10,10 @@ import { apiLogin, apiRegister } from "@/hooks/usedebugger"  // ← import API f
 export default function Home() {
   const {
     appState, sessionId, code, description,
-    result, sessions, showAuth, user, error,
+    result, sessions, showAuth, user, error,showLoginPrompt,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout,
+    handleLogin, handleLogout, setShowLoginPrompt,
   } = useDebugger()
 
   const showFlowchart = appState === "running" || appState === "done"
@@ -85,6 +85,53 @@ export default function Home() {
   onApiRegister={apiRegister}    // import from usedebugger
 />
       )}
+
+      {showLoginPrompt && (
+  <div style={{
+    position: "fixed", inset: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 200
+  }}>
+    <div style={{
+      backgroundColor: "#252526",
+      border: "1px solid #3e3e42",
+      borderRadius: "12px",
+      padding: "2rem",
+      maxWidth: "320px",
+      textAlign: "center",
+      fontFamily: "'JetBrains Mono', monospace"
+    }}>
+      <div style={{ fontSize: "24px", marginBottom: "1rem" }}>🐛</div>
+      <div style={{ color: "#d4d4d4", fontSize: "13px", marginBottom: "0.5rem" }}>
+         session not saved
+      </div>
+      <div style={{ color: "#5a5a5a", fontSize: "12px", marginBottom: "1.5rem", lineHeight: "1.6" }}>
+        Sign in to save your debug sessions and access them later.
+      </div>
+      <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+        <button
+          onClick={() => { setShowLoginPrompt(false); setShowAuth(true) }}
+          style={{
+            backgroundColor: "#007acc", border: "none",
+            borderRadius: "6px", color: "#fff",
+            padding: "8px 16px", fontSize: "12px",
+            fontFamily: "inherit", cursor: "pointer"
+          }}
+        >sign in</button>
+        <button
+          onClick={() => setShowLoginPrompt(false)}
+          style={{
+            backgroundColor: "transparent", border: "1px solid #3e3e42",
+            borderRadius: "6px", color: "#5a5a5a",
+            padding: "8px 16px", fontSize: "12px",
+            fontFamily: "inherit", cursor: "pointer"
+          }}
+        >ok</button>
+      </div>
+    </div>
+  </div>
+)}
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
