@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional 
 from tools.redis_publisher import close_redis, get_redis
 from contextlib import asynccontextmanager
 from app.auth.routes import router as auth_router
@@ -9,6 +10,7 @@ from app.memory.session_store import save_session, get_user_context
 from app.scoring.confidence import calculate_confidence
 from dotenv import load_dotenv
 import json, os
+from app.auth.jwt import get_current_user_optional 
 
 load_dotenv()
 
@@ -52,13 +54,12 @@ async def health():
 @app.post("/debug", response_model=DebugResult)
 async def debug(
     req:          DebugRequest,
-    current_user: dict = Depends(get_current_user)   # ← auth here, NOT nested
+    current_user: Optional[dict] = Depends(get_current_user_optional)  # ← auth here, NOT nested
 ):
-    user_id = current_user["sub"]
-    print(f"[debug] user: {user_id}")
+    user_id = current_user["sub"] if current_user else None
+    print(f"[debug] user: {user_id or 'anonymous'}")
 
-    # Load user's past session context for better analysis
-    user_context = await get_user_context(user_id)
+    user_context = await get_user_context(user_id) if user_id else []
 
     result = await orchestrator.ainvoke({
         "messages":          [],
@@ -100,13 +101,13 @@ async def debug(
     )
 
     # Save session under this user for future memory
-    await save_session(
-        user_id=    user_id,
-        session_id= req.session_id or "default-session",
-        result=     result,
-        request=    req.model_dump(),
-    )
-
+    if user_id:
+        await save_session(
+            user_id=    user_id,
+            session_id= req.session_id or "default-session",
+            result=     result,
+            request=    req.model_dump(),
+        )
     return debug_result
 
 # ── Session history endpoints ─────────────────────────────────────────────────

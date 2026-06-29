@@ -13,7 +13,7 @@ export default function Home() {
     result, sessions, showAuth, user, error,showLoginPrompt,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout, setShowLoginPrompt,
+    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession
   } = useDebugger()
 
   const showFlowchart = appState === "running" || appState === "done"
@@ -29,7 +29,7 @@ export default function Home() {
       <Sidebar
         sessions={sessions}
         onNewSession={handleNewSession}
-        onSelectSession={() => {}}
+        onSelectSession={handleSelectSession}
         currentSessionId={sessionId}
         user={user}
         onLoginClick={() => setShowAuth(true)}

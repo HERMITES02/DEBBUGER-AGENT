@@ -1,8 +1,11 @@
-from sqlalchemy import Column, String, DateTime, Boolean
+from sqlalchemy import Column, String, DateTime, Boolean, Float, Text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from datetime import datetime
+from datetime import datetime, time
 import uuid, os
+import json,time
+from contextlib import asynccontextmanager
+
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./users.db")
 
@@ -11,6 +14,22 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 class Base(DeclarativeBase):
     pass
+
+class SessionRecord(Base):
+    __tablename__ = "sessions"
+
+    session_id   = Column(String, primary_key=True)
+    user_id      = Column(String, nullable=False, index=True)
+    timestamp    = Column(Float, default=time.time)
+    language     = Column(String, default="python")
+    summary      = Column(String)
+    confidence   = Column(Float, default=0.0)
+    root_cause   = Column(Text)
+    patch        = Column(Text)
+    explanation  = Column(Text)
+    tests        = Column(Text)   # JSON string
+    code         = Column(Text)
+    user_message = Column(Text)
 
 class User(Base):
     __tablename__ = "users"
@@ -23,6 +42,17 @@ class User(Base):
     is_active     = Column(Boolean, default=True)
 
 async def init_db():
-    """Create tables on startup."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    print("[startup] Database tables created")
+
+@asynccontextmanager
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()

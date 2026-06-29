@@ -40,6 +40,16 @@ export default function ChatInput({ appState, code: parentCode, description: par
     return () => clearInterval(interval)
   }, [])
 
+
+  useEffect(() => {
+  if (appState === "idle") {
+    setCode("")
+    setDescription("")
+    setImages([])
+  }
+  }, [appState])
+  
+  
   const handleImageUpload = (file: File) => {
     const reader = new FileReader()
     reader.onload = () => setImages(prev => [...prev, reader.result as string])
@@ -78,9 +88,9 @@ export default function ChatInput({ appState, code: parentCode, description: par
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      justifyContent: "flex-end",
+      justifyContent: "center",
       padding: "2rem 1.5rem",
-      overflow: "hidden",
+      overflow: "auto",
       backgroundColor: "#1e1e1e",
       position: "relative"
     }}>
@@ -106,7 +116,12 @@ export default function ChatInput({ appState, code: parentCode, description: par
             <span style={{ color: "#6a6a6a", fontSize: "22px" }}>()</span>
           </h1>
           {appState === "idle" && (
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", marginTop: "0.75rem" }}>
+            <div style={{
+              display: "flex", gap: "8px",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              marginTop: "0.75rem"
+            }}>
               {[
                 { label: "multimodal", color: "#c586c0" },
                 { label: "multi-agent", color: "#569cd6" },
@@ -139,7 +154,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
       }}>
 
         {/* RESULTS / CODE — scrollable area above input */}
-        {(appState === "running" || appState === "done") && (
+        {(appState === "running" || appState === "done" ) && (
           <div style={{
             backgroundColor: "#1c1c1c",
             border: "1px solid #2a2a2a",
@@ -178,7 +193,8 @@ export default function ChatInput({ appState, code: parentCode, description: par
                   <div style={{
                     color: "#5a5a5a", fontSize: "12px", padding: "10px 8px",
                     minWidth: "36px", textAlign: "right", userSelect: "none",
-                    lineHeight: "1.6", borderRight: "1px solid #2a2a2a"
+                    lineHeight: "1.6", borderRight: "1px solid #2a2a2a",
+                  flexShrink: 0
                   }}>
                     {code.split("\n").map((_, i) => <div key={i}>{i + 1}</div>)}
                   </div>
@@ -302,7 +318,12 @@ export default function ChatInput({ appState, code: parentCode, description: par
                   background: "radial-gradient(ellipse, rgba(152,195,121,0.25) 0%, transparent 70%)"
                 }} />
               </div>
-              <div style={{ display: "flex", backgroundColor: "#1e1e1e" }}>
+              <div style={{
+                display: "flex",
+                backgroundColor: "#1e1e1e",
+                maxHeight: "260px",
+                overflowY: "auto"
+              }}>
                 <div style={{
                   color: "#5a5a5a", fontSize: "12px", padding: "12px 8px",
                   minWidth: "40px", textAlign: "right", userSelect: "none",
@@ -320,7 +341,8 @@ export default function ChatInput({ appState, code: parentCode, description: par
                     flex: 1, backgroundColor: "transparent", border: "none",
                     color: "#d4d4d4", fontSize: "13px", fontFamily: "inherit",
                     lineHeight: "1.6", padding: "12px", minHeight: "180px",
-                    resize: "vertical", outline: "none", caretColor: "#aeafad"
+                    resize: "none", outline: "none", caretColor: "#aeafad",
+                    overflow: "hidden"
                   }}
                 />
               </div>

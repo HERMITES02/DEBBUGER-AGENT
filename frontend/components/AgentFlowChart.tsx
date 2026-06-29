@@ -84,7 +84,6 @@ export default function AgentFlowChart({ sessionId, isRunning }: AgentFlowChartP
     }
 
     ws.onerror = (e) => {
-      console.error("[AgentFlowChart] ws error:", e)
       setConnected(false)
     }
 

@@ -72,31 +72,41 @@ export async function apiGetSessions(): Promise<Session[]> {
   const res = await authFetch(`${API_BASE}/sessions`)
   if (!res.ok) return []
   const data = await res.json()
-  return (data.sessions || []).map((s: any) => ({
-    id:         s.session_id,
-    title:      s.summary || "Debug session",
-    timestamp:  new Date(s.timestamp * 1000).toLocaleTimeString(),
-    confidence: s.confidence,
-  }))
+  return (data.sessions || []).map((s: any) => {
+    const raw = (s.summary || "")
+      .replace("ROOT_CAUSE:", "")
+      .trim()
+    const title = raw.split(/\s+/).slice(0, 4).join(" ") || "Debug session"
+    return {
+      id:         s.session_id,
+      title,
+      timestamp:  new Date(s.timestamp * 1000).toLocaleTimeString(),
+      confidence: s.confidence,
+    }
+  })
 }
 
 // ── main debug call ────────────────────────────────────────────────────────
 export async function apiDebug(
   userMessage: string,
-  code:        string,
-  language:    string,
-  images:      string[],
-  sessionId:   string,
+  code: string,
+  language: string,
+  images: string[],
+  sessionId: string,
+  token?: string
 ): Promise<DebugResult> {
-  const res = await authFetch(`${API_BASE}/debug`, {
+  const res = await fetch(`${API_BASE}/debug`, {  // ← direct fetch, not authFetch
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})  // ← use passed token
+    },
     body: JSON.stringify({
       user_message: userMessage,
-      code:         code || null,
+      code: code || null,
       language,
-      // strip data:image/png;base64, prefix if present
-      images:       images.map(img => img.includes(",") ? img.split(",")[1] : img),
-      session_id:   sessionId,
+      images: images.map(img => img.includes(",") ? img.split(",")[1] : img),
+      session_id: sessionId,
     }),
   })
   if (!res.ok) {
@@ -108,6 +118,7 @@ export async function apiDebug(
   }
   return res.json()
 }
+
 
 // ── the hook ───────────────────────────────────────────────────────────────
 export function useDebugger() {
@@ -130,6 +141,8 @@ useEffect(() => {
   if (stored) setUser(JSON.parse(stored))
 }, [])
 
+  
+
   // Called by ChatInput when user clicks "run debugger"
   const handleStart = async (
     sid:  string,
@@ -150,7 +163,9 @@ useEffect(() => {
     setAppState("running")
 
     try {
-      const data = await apiDebug(desc, c, lang, imgs, sid)
+      const token = user?.token || getToken() || undefined
+console.log("[handleStart] token being sent:", token?.slice(0, 30) || "NONE")
+const data = await apiDebug(desc, c, lang, imgs, sid, token)
       handleResult(data)
     } catch (err: any) {
       console.error("[useDebugger] error:", err)
@@ -165,9 +180,20 @@ const handleResult = (data: DebugResult) => {
   setAppState("done")
   if (user) {
     setSessions(prev => {
+
+      const rawCause = data.root_cause || ""
+      const cleaned = rawCause
+        .replace("ROOT_CAUSE:", "")
+        .replace(/CONFIDENCE:.*$/s, "")
+        .replace(/NEEDS_MORE_INFO:.*$/s, "")
+        .trim()
+      // get first meaningful phrase — up to 4 words
+      const words = cleaned.split(/\s+/).slice(0, 4).join(" ")
+      const title = words || description || "Debug session"
+
       const newSession = {
         id: sessionId,
-        title: description || code.split("\n")[0].slice(0, 40) || "Debug session",
+        title,
         timestamp: new Date().toLocaleTimeString(),
         confidence: data.confidence,
       }
@@ -182,7 +208,28 @@ const handleResult = (data: DebugResult) => {
     }, 1000)
     
   }
-}
+  }
+  
+  const handleSelectSession = async (id: string) => {
+  try {
+    const res = await authFetch(`${API_BASE}/sessions/${id}`)
+    const data = await res.json()
+    setSessionId(id)
+    setCode(data.request?.code || "")
+    setDescription(data.request?.user_message || "")
+    setResult({
+      root_cause:  data.root_cause,
+      patch:       data.patch,
+      explanation: data.explanation,
+      tests:       data.tests,
+      confidence:  data.confidence,
+    })
+    setAppState("done")
+  } catch (e) {
+    console.error("Failed to load session:", e)
+  }
+  }
+  
 
   const handleNewSession = () => {
     setAppState("idle")
@@ -213,18 +260,25 @@ const handleResult = (data: DebugResult) => {
     setSessions([])
     handleNewSession()
   }
+
 useEffect(() => {
   if (user?.token) {
+    console.log("[sessions] fetching for user:", user.email)
     apiGetSessions()
-      .then(setSessions)
-      .catch(() => {}) // silently ignore — backend may not be up yet
+      .then(incoming => {
+        console.log("[sessions] received:", incoming)
+        setSessions(incoming)
+      })
+      .catch(e => console.error("[sessions] error:", e))
   }
 }, [user?.token])
+  
+  
   return {
     appState, sessionId, code, description, language, images,
     result, sessions, showAuth, user, error, showLoginPrompt,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout, setShowLoginPrompt
+    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession
   }
 }
