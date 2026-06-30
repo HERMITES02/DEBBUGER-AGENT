@@ -1,4 +1,4 @@
-import { useState,useEffect } from "react"
+import React, { useState, useEffect } from "react"
 
 export type AppState = "idle" | "running" | "done"
 export interface Session { id: string; title: string; timestamp: string; confidence?: number }
@@ -121,7 +121,7 @@ export async function apiDebug(
 
 
 // ── the hook ───────────────────────────────────────────────────────────────
-export function useDebugger() {
+export function useDebugger(wsReadyResolveRef?: React.MutableRefObject<(() => void) | null>) {
   const [appState, setAppState]       = useState<AppState>("idle")
   const [sessionId, setSessionId]     = useState("")
   const [code, setCode]               = useState("")
@@ -162,10 +162,20 @@ useEffect(() => {
     setError(null)
     setAppState("running")
 
+    // Wait for WebSocket to connect before calling API
+    // This prevents the race condition where router events are missed
+    if (wsReadyResolveRef) {
+      await new Promise<void>((resolve) => {
+        wsReadyResolveRef.current = resolve
+        // Fallback timeout — don't block forever if WebSocket fails
+        setTimeout(resolve, 2000)
+      })
+    }
+
     try {
       const token = user?.token || getToken() || undefined
-console.log("[handleStart] token being sent:", token?.slice(0, 30) || "NONE")
-const data = await apiDebug(desc, c, lang, imgs, sid, token)
+      console.log("[handleStart] token being sent:", token?.slice(0, 30) || "NONE")
+      const data = await apiDebug(desc, c, lang, imgs, sid, token)
       handleResult(data)
     } catch (err: any) {
       console.error("[useDebugger] error:", err)
@@ -178,37 +188,54 @@ const data = await apiDebug(desc, c, lang, imgs, sid, token)
 const handleResult = (data: DebugResult) => {
   setResult(data)
   setAppState("done")
+
+  const rawCause = data.root_cause || ""
+  const cleaned = rawCause
+    .replace("ROOT_CAUSE:", "")
+    .replace(/CONFIDENCE:.*$/s, "")
+    .replace(/NEEDS_MORE_INFO:.*$/s, "")
+    .replace(/FIX_APPROACH:.*$/s, "")
+    .trim()
+  const words = cleaned.split(/\s+/).slice(0, 4).join(" ")
+  const title = words || description || "Debug session"
+
+  const newSession = {
+    id: sessionId,
+    title,
+    timestamp: new Date().toLocaleTimeString(),
+    confidence: data.confidence,
+  }
+
+  // Always add to local sidebar immediately
+  setSessions(prev => {
+    const filtered = prev.filter(s => s.id !== newSession.id)
+    return [newSession, ...filtered.slice(0, 49)]
+  })
+
   if (user) {
-    setSessions(prev => {
-
-      const rawCause = data.root_cause || ""
-      const cleaned = rawCause
-        .replace("ROOT_CAUSE:", "")
-        .replace(/CONFIDENCE:.*$/s, "")
-        .replace(/NEEDS_MORE_INFO:.*$/s, "")
-        .trim()
-      // get first meaningful phrase — up to 4 words
-      const words = cleaned.split(/\s+/).slice(0, 4).join(" ")
-      const title = words || description || "Debug session"
-
-      const newSession = {
-        id: sessionId,
-        title,
-        timestamp: new Date().toLocaleTimeString(),
-        confidence: data.confidence,
-      }
-      // deduplicate by id
-      const filtered = prev.filter(s => s.id !== newSession.id)
-      return [newSession, ...filtered.slice(0, 49)]
+    // Save to backend immediately so it persists across refreshes
+    authFetch(`${API_BASE}/sessions/save`, {
+      method: "POST",
+      body: JSON.stringify({
+        session_id:   sessionId,
+        root_cause:   data.root_cause  || "",
+        patch:        data.patch        || "",
+        explanation:  data.explanation  || "",
+        tests:        data.tests        || [],
+        confidence:   data.confidence   || 0.0,
+        code:         code              || "",
+        language:     language          || "python",
+        user_message: description       || "",
+      }),
     })
+      .then(() => console.log("[handleResult] session saved to backend"))
+      .catch(err => console.error("[handleResult] save failed:", err))
   } else {
-    // show message after short delay so results appear first
     setTimeout(() => {
       setShowLoginPrompt(true)
     }, 1000)
-    
   }
-  }
+}
   
   const handleSelectSession = async (id: string) => {
   try {
@@ -295,7 +322,13 @@ useEffect(() => {
     apiGetSessions()
       .then(incoming => {
         console.log("[sessions] received:", incoming)
-        setSessions(incoming)
+        // Merge with existing local sessions instead of replacing
+        setSessions(prev => {
+          const incomingIds = new Set(incoming.map(s => s.id))
+          // Keep local sessions not yet on server + all server sessions
+          const localOnly = prev.filter(s => !incomingIds.has(s.id))
+          return [...localOnly, ...incoming].slice(0, 50)
+        })
       })
       .catch(e => console.error("[sessions] error:", e))
   }

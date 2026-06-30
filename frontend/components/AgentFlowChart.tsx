@@ -12,6 +12,7 @@ interface AgentEvent {
 interface AgentFlowChartProps {
   sessionId: string
   isRunning: boolean
+  onReady?: () => void
 }
 
 // ── Fix: agent IDs must match what publish_agent_event sends ─────────────
@@ -39,7 +40,7 @@ const PIPELINE = [
   "test",
 ]
 
-export default function AgentFlowChart({ sessionId, isRunning }: AgentFlowChartProps) {
+export default function AgentFlowChart({ sessionId, isRunning, onReady }: AgentFlowChartProps) {
   const [events,       setEvents]       = useState<AgentEvent[]>([])
   const [visibleNodes, setVisibleNodes] = useState<string[]>([])
   const [connected,    setConnected]    = useState(false)
@@ -63,6 +64,8 @@ export default function AgentFlowChart({ sessionId, isRunning }: AgentFlowChartP
     ws.onopen = () => {
       setConnected(true)
       console.log(`[AgentFlowChart] connected to session ${sessionId}`)
+      // Signal to parent that WebSocket is ready — safe to call API now
+      onReady?.()
     }
 
     ws.onmessage = (event) => {

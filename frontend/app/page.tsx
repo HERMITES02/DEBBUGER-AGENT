@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useRef, useCallback } from "react"
 import Sidebar from "@/components/SideBar"
 import AuthModal from "@/components/AuthModal"
 import ChatInput from "@/components/ChatInput"
@@ -8,13 +9,15 @@ import { useDebugger } from "@/hooks/usedebugger"   // ← only import useDebugg
 import { apiLogin, apiRegister } from "@/hooks/usedebugger"  // ← import API functions for AuthModal
 
 export default function Home() {
+  const wsReadyResolveRef = useRef<(() => void) | null>(null)
+
   const {
     appState, sessionId, code, description,
     result, sessions, showAuth, user, error,showLoginPrompt,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
     handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession
-  } = useDebugger()
+  } = useDebugger(wsReadyResolveRef)
 
   const showFlowchart = appState === "running" || appState === "done"
 
@@ -62,20 +65,29 @@ export default function Home() {
         onNewSession={handleNewSession}
       />
 
-      {showFlowchart && (
-        <div style={{
-          width: "300px",
-          borderLeft: "1px solid #2a2a2a",
-          backgroundColor: "#1a1a1a",
-          overflowY: "auto",
-          padding: "2rem 2rem 1rem 2rem"
-        }}>
-          <AgentFlowChart
-            sessionId={sessionId}
-            isRunning={appState === "running"}
-          />
-        </div>
-      )}
+      {/* Always mounted — hidden via CSS when not running so WebSocket connects before API call */}
+      <div style={{
+        width: showFlowchart ? "300px" : "0px",
+        overflow: "hidden",
+        borderLeft: showFlowchart ? "1px solid #2a2a2a" : "none",
+        backgroundColor: "#1a1a1a",
+        overflowY: "auto",
+        padding: showFlowchart ? "2rem 2rem 1rem 2rem" : "0",
+        transition: "width 0.3s ease",
+        flexShrink: 0,
+      }}>
+        <AgentFlowChart
+          sessionId={sessionId}
+          isRunning={appState === "running"}
+          onReady={() => {
+            // Resolve the promise that handleStart is waiting on
+            if (wsReadyResolveRef.current) {
+              wsReadyResolveRef.current()
+              wsReadyResolveRef.current = null
+            }
+          }}
+        />
+      </div>
 
       {showAuth && (
         <AuthModal
