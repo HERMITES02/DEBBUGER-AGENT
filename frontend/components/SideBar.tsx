@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 interface Session {
   id: string
@@ -21,29 +21,29 @@ interface SidebarProps {
   user: User | null
   onLoginClick: () => void
   onLogout: () => void
+  onOpenSessions: () => void
 }
 
 export default function Sidebar({
   sessions, onNewSession, onSelectSession,
-  currentSessionId, user, onLoginClick, onLogout
+  currentSessionId, user, onLoginClick, onLogout, onOpenSessions
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false)
-  const [search, setSearch] = useState("")
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [mounted, setMounted] = useState(false)
-useEffect(() => setMounted(true), [])
-
-  const filtered = sessions.filter(s =>
-    s.title.toLowerCase().includes(search.toLowerCase())
-  )
+  const [recentsOpen, setRecentsOpen] = useState(true)
 
   const initials = user?.name
     ? user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
     : "?"
 
+  const handleSessionsClick = () => {
+    if (!user) { onLoginClick(); return }
+    onOpenSessions()
+  }
+
   return (
     <div style={{
-      width: expanded ? "220px" : "48px",
+      width: expanded ? "240px" : "48px",
       height: "100vh",
       backgroundColor: "#161616",
       borderRight: "1px solid #2a2a2a",
@@ -53,7 +53,8 @@ useEffect(() => setMounted(true), [])
       overflow: "hidden",
       flexShrink: 0,
       zIndex: 10,
-      position: "relative"
+      position: "relative",
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace"
     }}>
 
       {/* Top icons */}
@@ -64,77 +65,96 @@ useEffect(() => setMounted(true), [])
         <SidebarBtn icon="+" label="New session" expanded={expanded}
           onClick={user ? onNewSession : onLoginClick} />
         <SidebarBtn icon="□" label="Sessions" expanded={expanded}
-          onClick={() => setExpanded(true)} />
-        <SidebarBtn icon="🔍" label="Search" expanded={expanded}
-          onClick={() => setExpanded(true)} />
+          onClick={handleSessionsClick} />
       </div>
 
-      {/* Search */}
+      {/* Recents header — only visible when expanded */}
       {expanded && (
-        <div style={{ padding: "0 8px 8px" }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search sessions..."
-            style={{
-              width: "100%", backgroundColor: "#252526",
-              border: "1px solid #3e3e42", borderRadius: "4px",
-              color: "#d4d4d4", fontSize: "11px", padding: "6px 8px",
-              outline: "none", fontFamily: "inherit", boxSizing: "border-box"
-            }}
-          />
+        <div
+          onClick={() => setRecentsOpen(!recentsOpen)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 12px 6px",
+            cursor: "pointer",
+            userSelect: "none"
+          }}
+        >
+          <span style={{ fontSize: "12px", color: "#9a9a9a", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Recents
+          </span>
+          <span style={{
+            fontSize: "14px", color: "#9a9a9a",
+            transition: "transform 0.15s",
+            display: "inline-block",
+            transform: recentsOpen ? "rotate(0deg)" : "rotate(-90deg)"
+          }}>
+            ▾
+          </span>
         </div>
       )}
 
-      {/* Sessions list */}
-      {expanded && (
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
-          {!user && (
-            <div style={{
-              color: "#5a5a5a", fontSize: "11px", padding: "8px 4px",
-              lineHeight: "1.6"
-            }}>
-              // sign in to save sessions
+      {/* Inline session list — only visible when expanded and recentsOpen */}
+      {expanded && recentsOpen && (
+        <div style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "0 6px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px"
+        }}>
+          {sessions.length === 0 ? (
+            <div style={{ color: "#5a5a5a", fontSize: "11px", padding: "12px" }}>
+              No sessions yet
             </div>
-          )}
-          {user && filtered.length === 0 && (
-            <div style={{ color: "#5a5a5a", fontSize: "11px", padding: "8px 4px" }}>
-              // no sessions yet
-            </div>
-          )}
-          {user && filtered.map(s => (
-            <div key={s.id} onClick={() => onSelectSession(s.id)}
-              style={{
-                padding: "8px", borderRadius: "4px", cursor: "pointer",
-                marginBottom: "2px",
-                backgroundColor: s.id === currentSessionId ? "#2a2d2e" : "transparent",
-                transition: "background 0.15s"
-              }}
-              onMouseEnter={e => {
-                if (s.id !== currentSessionId)
-                  (e.currentTarget as HTMLElement).style.backgroundColor = "#1e1e1e"
-              }}
-              onMouseLeave={e => {
-                if (s.id !== currentSessionId)
-                  (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
-              }}
-            >
-              <div style={{
-                color: "#d4d4d4", fontSize: "11px",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-              }}>{s.title}</div>
-              <div style={{ color: "#5a5a5a", fontSize: "10px", marginTop: "2px" }}>
-                {s.timestamp}
+          ) : (
+            sessions.map(session => (
+              <div
+                key={session.id}
+                onClick={() => onSelectSession(session.id)}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  backgroundColor: session.id === currentSessionId ? "#252526" : "transparent",
+                  transition: "background 0.15s"
+                }}
+                onMouseEnter={e => {
+                  if (session.id !== currentSessionId) {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "#1f1f1f"
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (session.id !== currentSessionId) {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
+                  }
+                }}
+              >
+                <div style={{
+                  fontSize: "11px",
+                  color: "#d4d4d4",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical"
+                }}>
+                  {session.title}
+                </div>
+                <div style={{ fontSize: "10px", color: "#5a5a5a", marginTop: "3px" }}>
+                  {session.timestamp}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
+
+      {(!expanded || !recentsOpen) && <div style={{ flex: 1 }} />}
 
       {/* Bottom — login or user profile */}
       <div style={{ padding: "12px", borderTop: "1px solid #2a2a2a" }}>
         {user ? (
-          /* Logged in — show avatar + menu */
           <div style={{ position: "relative" }}>
             <div
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -168,7 +188,6 @@ useEffect(() => setMounted(true), [])
               )}
             </div>
 
-            {/* User dropdown */}
             {showUserMenu && (
               <div style={{
                 position: "absolute", bottom: "40px",
@@ -208,7 +227,6 @@ useEffect(() => setMounted(true), [])
             )}
           </div>
         ) : (
-          /* Not logged in — show login button */
           <div
             onClick={onLoginClick}
             title="Sign in"

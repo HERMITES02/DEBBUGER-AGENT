@@ -133,6 +133,7 @@ export function useDebugger(wsReadyResolveRef?: React.MutableRefObject<(() => vo
   const [showAuth, setShowAuth]       = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [showSessionsView, setShowSessionsView] = useState(false)
 
   const [user, setUser] = useState<User | null>(null)
 
@@ -192,9 +193,9 @@ const handleResult = (data: DebugResult) => {
   const rawCause = data.root_cause || ""
   const cleaned = rawCause
     .replace("ROOT_CAUSE:", "")
-    .replace(/CONFIDENCE:.*$/s, "")
-    .replace(/NEEDS_MORE_INFO:.*$/s, "")
-    .replace(/FIX_APPROACH:.*$/s, "")
+    .replace(/CONFIDENCE:[\s\S]*$/, "")
+    .replace(/NEEDS_MORE_INFO:[\s\S]*$/, "")
+    .replace(/FIX_APPROACH:[\s\S]*$/, "")
     .trim()
   const words = cleaned.split(/\s+/).slice(0, 4).join(" ")
   const title = words || description || "Debug session"
@@ -337,9 +338,9 @@ useEffect(() => {
   
   return {
     appState, sessionId, code, description, language, images,
-    result, sessions, showAuth, user, error, showLoginPrompt,
+    result, sessions, showAuth, user, error, showLoginPrompt, showSessionsView,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession
+    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession, setShowSessionsView
   }
 }

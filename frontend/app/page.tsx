@@ -1,22 +1,23 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useRef } from "react"
 import Sidebar from "@/components/SideBar"
 import AuthModal from "@/components/AuthModal"
 import ChatInput from "@/components/ChatInput"
 import AgentFlowChart from "@/components/AgentFlowChart"
-import { useDebugger } from "@/hooks/usedebugger"   // ← only import useDebugger
-import { apiLogin, apiRegister } from "@/hooks/usedebugger"  // ← import API functions for AuthModal
+import SessionsView from "../components/SessionsView"
+import { useDebugger } from "@/hooks/usedebugger"
+import { apiLogin, apiRegister } from "@/hooks/usedebugger"
 
 export default function Home() {
   const wsReadyResolveRef = useRef<(() => void) | null>(null)
 
   const {
     appState, sessionId, code, description,
-    result, sessions, showAuth, user, error,showLoginPrompt,
+    result, sessions, showAuth, user, error,showLoginPrompt, showSessionsView,
     setShowAuth,
     handleStart, handleResult, handleNewSession,
-    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession
+    handleLogin, handleLogout, setShowLoginPrompt,handleSelectSession,setShowSessionsView
   } = useDebugger(wsReadyResolveRef)
 
   const showFlowchart = appState === "running" || appState === "done"
@@ -31,10 +32,11 @@ export default function Home() {
 
       <Sidebar
         sessions={sessions}
-        onNewSession={handleNewSession}
-        onSelectSession={handleSelectSession}
+        onNewSession={() => { handleNewSession(); setShowSessionsView(false) }}
+        onSelectSession={(id) => { handleSelectSession(id); setShowSessionsView(false) }}
         currentSessionId={sessionId}
         user={user}
+        onOpenSessions={() => setShowSessionsView(true)}
         onLoginClick={() => setShowAuth(true)}
         onLogout={handleLogout}
       />
@@ -55,7 +57,18 @@ export default function Home() {
         </div>
       )}
 
-      <ChatInput
+
+      {showSessionsView ? (
+        <SessionsView
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSelectSession={(id: string) => { handleSelectSession(id); setShowSessionsView(false) }}
+          onNewSession={() => { handleNewSession(); setShowSessionsView(false) }}
+          onClose={() => setShowSessionsView(false)}
+        />
+      ) : (
+          <>
+            <ChatInput
         appState={appState}
         code={code}
         description={description}
@@ -88,6 +101,11 @@ export default function Home() {
           }}
         />
       </div>
+            
+
+          </>
+          
+      )}
 
       {showAuth && (
         <AuthModal
