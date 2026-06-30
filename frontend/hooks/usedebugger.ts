@@ -177,7 +177,7 @@ useEffect(() => {
       const token = user?.token || getToken() || undefined
       console.log("[handleStart] token being sent:", token?.slice(0, 30) || "NONE")
       const data = await apiDebug(desc, c, lang, imgs, sid, token)
-      handleResult(data)
+      handleResult(data, sid, desc)
     } catch (err: any) {
       console.error("[useDebugger] error:", err)
       setError(err.message || "Something went wrong")
@@ -186,9 +186,12 @@ useEffect(() => {
   }
 
   // usedebugger.ts — deduplicate when setting sessions
-const handleResult = (data: DebugResult) => {
+const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: string) => {
   setResult(data)
   setAppState("done")
+
+  const sidToUse = overrideSid || data.session_id || sessionId
+  if (!sidToUse) return
 
   const rawCause = data.root_cause || ""
   const cleaned = rawCause
@@ -198,10 +201,10 @@ const handleResult = (data: DebugResult) => {
     .replace(/FIX_APPROACH:[\s\S]*$/, "")
     .trim()
   const words = cleaned.split(/\s+/).slice(0, 4).join(" ")
-  const title = words || description || "Debug session"
+  const title = words || overrideDesc || description || "Debug session"
 
   const newSession = {
-    id: sessionId,
+    id: sidToUse,
     title,
     timestamp: new Date().toLocaleTimeString(),
     confidence: data.confidence,
@@ -213,25 +216,7 @@ const handleResult = (data: DebugResult) => {
     return [newSession, ...filtered.slice(0, 49)]
   })
 
-  if (user) {
-    // Save to backend immediately so it persists across refreshes
-    authFetch(`${API_BASE}/sessions/save`, {
-      method: "POST",
-      body: JSON.stringify({
-        session_id:   sessionId,
-        root_cause:   data.root_cause  || "",
-        patch:        data.patch        || "",
-        explanation:  data.explanation  || "",
-        tests:        data.tests        || [],
-        confidence:   data.confidence   || 0.0,
-        code:         code              || "",
-        language:     language          || "python",
-        user_message: description       || "",
-      }),
-    })
-      .then(() => console.log("[handleResult] session saved to backend"))
-      .catch(err => console.error("[handleResult] save failed:", err))
-  } else {
+  if (!user) {
     setTimeout(() => {
       setShowLoginPrompt(true)
     }, 1000)
@@ -239,6 +224,7 @@ const handleResult = (data: DebugResult) => {
 }
   
   const handleSelectSession = async (id: string) => {
+  if (!id) return
   try {
     const res = await authFetch(`${API_BASE}/sessions/${id}`)
     if (!res.ok) {
@@ -249,8 +235,8 @@ const handleResult = (data: DebugResult) => {
     setSessionId(id)
     setCode(data.request?.code || "")
     setDescription(data.request?.user_message || "")
-    setLanguage(data.language || "python")   // ← was missing
-    setImages([])                             // ← clear stale images from previous session
+    setLanguage(data.language || "python")
+    setImages([])
     setResult({
       root_cause:  data.root_cause,
       patch:       data.patch,
@@ -266,6 +252,7 @@ const handleResult = (data: DebugResult) => {
   
 
   const handleNewSession = async () => {
+
   if (user && result && sessionId) {
     try {
       await authFetch(`${API_BASE}/sessions/save`, {
