@@ -11,21 +11,13 @@ from agents.model_router import get_model_for_agent
 from shared.schema import DebugRequest, AgentMessage
 from dotenv import load_dotenv
 from anthropic import Anthropic, APIError, APITimeoutError
-from redis import Redis
 import redis.asyncio as aioredis
 import subprocess
+from tools.redis_publisher import publish_agent_event
 
 load_dotenv()
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-redis_client = Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    password=os.getenv("REDIS_PASSWORD", None),
-    decode_responses=True,
-    ssl=True
-)
 
 SYSTEM_PROMPT = """
 You are a debugger agent.You are expert at code analysis, specialized in 
@@ -112,54 +104,76 @@ def analyse_with_claude(ruff_output: str, ast_summary: dict, code: str) -> dict:
                 }
             ]
         )
-        return json.loads(response.content[0].text)
-    except (APIError, APITimeoutError) as e:
-        print(f"Error communicating with Claude API: {e}")
+        raw = response.content[0].text.strip()
+        # Strip markdown fences if Claude adds them
+        if raw.startswith("```"):
+            raw = raw.split("```json")[-1].split("```")[0].strip()
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[code_analysis_agent] Claude/parse error: {e}")
         return {
         "bug_classification": None,
         "affected_functions": [],
         "severity": None,
-        "explanation": "Claude API error",
+        "explanation": f"Analysis error: {e}",
         "confidence": 0.0
         }
         
 
 async def run_code_analysis_agent(request: DebugRequest) -> dict:
+    sid = request.session_id or "default-session"
+
     if not request.code:
         print("[run_code_analysis_agent] ⚠️ No code in request")
         return None
 
-    ruff_output = run_ruff(request.code)
-    ast_summary = run_treesitter(request.code)
-    claude_result = analyse_with_claude(ruff_output, ast_summary, request.code)
-
-    msg = AgentMessage(
-        session_id=request.session_id,
-        type="code_analysed",
-        agent_id="code_analysis_agent",
-        content={
-            "ruff_output":         ruff_output,
-            "ast_summary":         ast_summary,
-            "bug_classification":  claude_result.get("bug_classification"),
-            "affected_functions":  claude_result.get("affected_functions"),
-            "severity":            claude_result.get("severity"),
-            "explanation":         claude_result.get("explanation")
-        },
-        confidence=claude_result["confidence"]
+    await publish_agent_event(
+        sid, "code_analysis_agent", "thinking",
+        "Running Ruff lint + TreeSitter AST + Claude analysis..."
     )
 
     try:
-        r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+        ruff_output = run_ruff(request.code)
+        ast_summary = run_treesitter(request.code)
+        claude_result = analyse_with_claude(ruff_output, ast_summary, request.code)
 
-        await r.rpush(
-            f"results:{request.session_id}:code",   # ← was: session_id
-            json.dumps(msg.model_dump())             # ← was: code_analysis_result
+        msg = AgentMessage(
+            session_id=request.session_id,
+            type="code_analysed",
+            agent_id="code_analysis_agent",
+            content={
+                "ruff_output":         ruff_output,
+                "ast_summary":         ast_summary,
+                "bug_classification":  claude_result.get("bug_classification"),
+                "affected_functions":  claude_result.get("affected_functions"),
+                "severity":            claude_result.get("severity"),
+                "explanation":         claude_result.get("explanation")
+            },
+            confidence=claude_result["confidence"]
         )
-        await r.expire(f"results:{request.session_id}:code", 300)
-        await r.aclose()
-        print(f"[code_analysis_agent] pushed result to Redis for session {request.session_id}")
+
+        try:
+            r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+            await r.rpush(
+                f"results:{request.session_id}:code",
+                json.dumps(msg.model_dump())
+            )
+            await r.expire(f"results:{request.session_id}:code", 300)
+            await r.aclose()
+            print(f"[code_analysis_agent] pushed result to Redis for session {request.session_id}")
+        except Exception as e:
+            print(f"[code_analysis_agent] Redis push failed: {e}")
+
+        await publish_agent_event(
+            sid, "code_analysis_agent", "result",
+            f"Found: {claude_result.get('bug_classification', 'unknown')}"
+        )
+        return msg.model_dump()
 
     except Exception as e:
-        print(f"[code_analysis_agent] Redis push failed: {e}")
-
-    return msg.model_dump()
+        print(f"[code_analysis_agent] CRASHED: {e}")
+        await publish_agent_event(
+            sid, "code_analysis_agent", "result",
+            f"Error: {str(e)[:80]}"
+        )
+        return None

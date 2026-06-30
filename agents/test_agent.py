@@ -45,12 +45,12 @@ Return ONLY a ```python code block containing the complete test file.
 Include the fixed function definition at the top so tests are self-contained.
 Use simple assert statements. No mocking needed."""
     
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
     llm = ChatAnthropic(
-    model=      get_model_for_agent("test_agent"),   # → haiku
-    api_key=    os.getenv("ANTHROPIC_API_KEY"),
-    max_tokens= 512,
-)
+        model=      get_model_for_agent("test_agent"),   # → haiku
+        api_key=    os.getenv("ANTHROPIC_API_KEY"),
+        max_tokens= 512,
+    )
+    response = await llm.ainvoke([HumanMessage(content=prompt)])
     return extract_code_block(response.content)
 
 async def run_test_agent(
@@ -100,7 +100,7 @@ if failed > 0:
             "test_code":     test_code,
             "stdout":        sandbox_result["stdout"],
             "stderr":        sandbox_result["stderr"],
-            "tests_passed":  "passed" in sandbox_result["stdout"],
+            "tests_passed":  sandbox_result["success"] and "FAIL" not in sandbox_result["stdout"],
         }
 
     except Exception as e:

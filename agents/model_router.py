@@ -118,17 +118,19 @@ def get_llm(
     agent_name:     str,
     override_model: str | None = None,
 ) -> ChatAnthropic:
-    """
-    Return a configured ChatAnthropic instance for an agent.
 
-    Pass override_model when you've already determined the model
-    via get_model_for_complexity() — otherwise it uses the agent's
-    default tier from AGENT_TIERS.
-    """
+    # ── re-read key at call time, not at import time ──────────────────────────
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    if not api_key:
+        raise ValueError(
+            f"[model_router] ANTHROPIC_API_KEY is not set. "
+            f"Check your .env file is in the project root and load_dotenv() is called."
+        )
+
     if override_model:
         model = override_model
-        # infer tier for max_tokens
-        tier = ModelTier.SMART if model == MODEL_MAP[ModelTier.SMART] else ModelTier.FAST
+        tier  = ModelTier.SMART if model == MODEL_MAP[ModelTier.SMART] else ModelTier.FAST
     else:
         tier  = AGENT_TIERS.get(agent_name, ModelTier.FAST)
         model = MODEL_MAP[tier]
@@ -139,10 +141,9 @@ def get_llm(
 
     return ChatAnthropic(
         model=      model,
-        api_key=    os.getenv("ANTHROPIC_API_KEY"),
+        api_key=    api_key,    # ← explicit, never None
         max_tokens= max_tokens,
     )
-
 
 def log_routing_summary(agent_name: str, model: str, reason: str = "") -> None:
     """Optional — call this to log routing decisions to console."""

@@ -48,7 +48,7 @@ def calculate_confidence(state: dict) -> float:
     factors = {}
     has_images = bool(state.get("images"))
 
-    # Factor 1: Claude self-reported confidence (25%)
+    # Factor 1: Claude self-reported confidence (30%)
     root_cause = state.get("root_cause", "")
     try:
         match = re.search(r"CONFIDENCE:\s*([0-9.]+)", root_cause)
@@ -56,79 +56,87 @@ def calculate_confidence(state: dict) -> float:
         claude_conf = max(0.0, min(1.0, claude_conf))
     except Exception:
         claude_conf = 0.5
-    score += claude_conf * 0.25
+    score += claude_conf * 0.30
     factors["claude_analysis"] = claude_conf
 
-    # Factor 2: Tests passed (35%)
+    # Factor 2: Tests passed (25%)
     has_code  = bool(state.get("code"))
     has_patch = bool(state.get("patch_diff"))
     if state.get("tests_passed") is True:
-        score += 0.35
+        score += 0.25
         factors["tests_passed"] = 1.0
     elif state.get("tests_passed") is False:
-        score += 0.0
+        score += 0.05   # partial credit — sandbox may have issues
         factors["tests_passed"] = 0.0
     else:
         if not has_code:
             score += 0.10
         elif not has_patch:
-            score += 0.00
+            score += 0.05
         else:
             score += 0.12
         factors["tests_passed"] = "skipped"
 
-    # Factor 3: Patch quality (15% or 20%)
+    # Factor 3: Patch quality (20% or 25%)
     patch        = state.get("patch_diff", "") or ""
-    patch_weight = 0.20 if not has_images else 0.15
-    added_lines   = len([l for l in patch.splitlines() if l.startswith("+")])
-    removed_lines = len([l for l in patch.splitlines() if l.startswith("-")])
+    patch_weight = 0.25 if not has_images else 0.20
+    # Skip diff headers (--- and +++) when counting real changes
+    real_lines   = [l for l in patch.splitlines()
+                    if not l.startswith("---") and not l.startswith("+++")
+                    and not l.startswith("@@")]
+    added_lines   = len([l for l in real_lines if l.startswith("+")])
+    removed_lines = len([l for l in real_lines if l.startswith("-")])
     changed_lines = added_lines + removed_lines
-    if changed_lines >= 3:
+    if changed_lines >= 2:
         score += patch_weight
         factors["patch_quality"] = 1.0
     elif changed_lines >= 1:
-        score += patch_weight * 0.5
-        factors["patch_quality"] = 0.5
+        score += patch_weight * 0.7
+        factors["patch_quality"] = 0.7
     else:
         factors["patch_quality"] = 0.0
 
-    # Factor 4: Search evidence (10%)
+    # Factor 4: Search evidence (5%)
     sources = state.get("search_results") or []
     if len(sources) >= 2:
-        score += 0.10
+        score += 0.05
         factors["search_evidence"] = 1.0
     elif len(sources) == 1:
-        score += 0.05
+        score += 0.03
         factors["search_evidence"] = 0.5
     else:
-        factors["search_evidence"] = 0.0
+        score += 0.02   # partial credit — no search ≠ wrong answer
+        factors["search_evidence"] = 0.2
 
-    # Factor 5: Vision confidence (10%, only with images)
+    # Factor 5: Vision confidence (5%, only with images)
     if has_images:
         vision      = state.get("vision_result") or {}
         vision_conf = float(vision.get("confidence", 0.0))
         vision_conf = max(0.0, min(1.0, vision_conf))
-        score += vision_conf * 0.10
+        score += vision_conf * 0.05
         factors["vision_confidence"] = vision_conf
     else:
         factors["vision_confidence"] = "n/a"
 
-    # Factor 6: Root cause quality (5%)
+    # Factor 6: Root cause quality (10%)
     rc_text  = ""
     rc_match = re.search(r"ROOT_CAUSE:\s*(.+)", root_cause)
     if rc_match:
         rc_text = rc_match.group(1).strip()
     vague_phrases = {"unknown", "unclear", "not provided", "n/a", "error occurred", "none"}
-    is_vague = len(rc_text) < 20 or any(p in rc_text.lower() for p in vague_phrases)
+    is_vague = len(rc_text) < 15 or any(p in rc_text.lower() for p in vague_phrases)
     if rc_text and not is_vague:
-        score += 0.05
+        score += 0.10
         factors["root_cause_quality"] = 1.0
+    elif rc_text:
+        score += 0.04
+        factors["root_cause_quality"] = 0.4
     else:
         factors["root_cause_quality"] = 0.0
 
-    # Cross-penalty: confident but tests failed
-    if claude_conf > 0.7 and state.get("tests_passed") is False:
-        penalty = (claude_conf - 0.7) * 0.4
+    # Cross-penalty: confident but tests failed (reduced from 0.4 to 0.2)
+    if claude_conf > 0.8 and state.get("tests_passed") is False:
+        penalty = (claude_conf - 0.8) * 0.2
         score  -= penalty
         factors["corroboration_penalty"] = -round(penalty, 2)
         print(f"[confidence] penalty applied: -{penalty:.2f}")
@@ -184,32 +192,42 @@ async def call_router_node(state: AgentState) -> AgentState:
                     "logs":         state.get("logs"),
                     "images":       state.get("images", []),
                 },
-                timeout=30.0,
+                timeout=90.0,
             )
 
             if response.status_code == 200:
                 router_result = response.json()
+                print(f"[orchestrator] router_result keys: {list(router_result.keys()) if router_result else 'None'}")
+
                 if router_result is not None:
-                    modalities      = router_result.get("modalities_detected", modalities)
-                    vision_result   = router_result.get("vision_result")
-                    code_analysis   = router_result.get("code_result")
-                    context_raw     = router_result.get("context")
-                    context_summary = (
-                        context_raw.get("summary", "")
-                        if isinstance(context_raw, dict) else ""
-                    )
-                    print(f"[orchestrator] router OK — modalities: {modalities}")
-                else:
-                    print("[orchestrator] router returned null — using defaults")
+                    modalities    = router_result.get("modalities_detected", modalities)
+
+                    # ── vision_result now top-level from fixed router ──────────
+                    vision_result = router_result.get("vision_result")
+                    code_analysis = router_result.get("code_result")
+
+                    # ── context summary from context_builder output ────────────
+                    context_raw = router_result.get("context")
+                    if isinstance(context_raw, dict):
+                        content = context_raw.get("content", {})
+                        if isinstance(content, dict):
+                            context_summary = (
+                                content.get("assembled_prompt", "") or
+                                content.get("bug_summary", "") or ""
+                            )
+
+                    print(f"[orchestrator] vision_result: {vision_result}")
+                    print(f"[orchestrator] code_analysis: {code_analysis}")
+                    print(f"[orchestrator] context_summary: {context_summary[:80] if context_summary else 'empty'}")
             else:
-                print(f"[orchestrator] router returned {response.status_code} — using defaults")
+                print(f"[orchestrator] router returned {response.status_code}")
 
         except httpx.ConnectError:
-            print("[orchestrator] WARNING: router not reachable on :8001 — using defaults")
+            print("[orchestrator] WARNING: router not reachable — using defaults")
         except httpx.TimeoutException:
             print("[orchestrator] WARNING: router timed out — using defaults")
         except Exception as e:
-            print(f"[orchestrator] router error: {type(e).__name__}: {e} — using defaults")
+            print(f"[orchestrator] router error: {type(e).__name__}: {e}")
 
     await publish_agent_event(sid, "router", "result", f"Detected: {modalities}")
 
@@ -220,10 +238,9 @@ async def call_router_node(state: AgentState) -> AgentState:
         "code_analysis":   code_analysis,
         "context_summary": context_summary,
         "messages": state["messages"] + [
-            AIMessage(content=f"Router: {modalities}, vision: {'yes' if vision_result else 'no'}")
+            AIMessage(content=f"Router: {modalities}, vision: {'yes — ' + str(vision_result.get('error_type')) if vision_result else 'no'}")
         ],
     }
-
 
 async def search_node(state: AgentState) -> AgentState:
     sid = state.get("session_id") or "default-session"
@@ -305,22 +322,28 @@ Static analysis:
     if state.get("user_context"):
         user_context = f"\n\nUser's recent debug history:\n{state['user_context']}"
 
+    # In analyse_node
+    image_note = ""
+    if state.get("images") and not state.get("vision_result"):
+        image_note = "\nNote: User submitted a screenshot but vision extraction returned no data. Ask user to also paste the code as text."
+
     prompt = f"""You are a code debugging expert.
 
-User message: {state['user_request']}
-Language: {state.get('language', 'python')}
-Code: {(state.get('code') or 'not provided — analyse from screenshot below')[:800]}
-Logs: {(state.get('logs') or 'not provided')[:300]}
-{vision_section}
-{code_context}
-{search_context}
-{user_context}
+    User message: {state['user_request']}
+    Language: {state.get('language', 'python')}
+    Code: {(state.get('code') or 'not provided — user submitted a screenshot')[:800]}
+    Logs: {(state.get('logs') or 'not provided')[:300]}
+    {vision_section}
+    {image_note}
+    {code_context}
+    {search_context}
+    {user_context}
 
-Respond in this EXACT format:
-ROOT_CAUSE: <one clear sentence — at least 20 characters, no vague answers>
-CONFIDENCE: <0.0 to 1.0>
-NEEDS_MORE_INFO: <yes/no>
-FIX_APPROACH: <one sentence on how to fix it>"""
+    Respond in this EXACT format:
+    ROOT_CAUSE: <one clear sentence>
+    CONFIDENCE: <0.0 to 1.0>
+    NEEDS_MORE_INFO: <yes/no>
+    FIX_APPROACH: <one sentence>"""
 
     response = await llm.ainvoke([HumanMessage(content=prompt)])
     await publish_agent_event(sid, "analyse", "result", response.content[:150])

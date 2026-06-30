@@ -17,6 +17,20 @@ load_dotenv()
 from shared.schema import DebugRequest, DebugResult
 from agents.orchestrator import orchestrator
 
+from pydantic import BaseModel
+
+class SaveSessionRequest(BaseModel):
+    session_id:  str
+    root_cause:  str = ""
+    patch:       str = ""
+    explanation: str = ""
+    tests:       list[str] = []
+    confidence:  float = 0.0
+    code:        str = ""
+    language:    str = "python"
+    user_message:str = ""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -111,6 +125,36 @@ async def debug(
     return debug_result
 
 # ── Session history endpoints ─────────────────────────────────────────────────
+
+@app.post("/sessions/save")
+async def save_current_session(
+    req:          SaveSessionRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Explicitly save the current session result before starting a new one.
+    Call this from the frontend when user clicks '+ new session'.
+    """
+    user_id = current_user["sub"]
+
+    await save_session(
+        user_id=    user_id,
+        session_id= req.session_id,
+        result={
+            "root_cause":        req.root_cause,
+            "patch_diff":        req.patch,
+            "patch_explanation": req.explanation,
+            "test_code":         req.tests[0] if req.tests else None,
+            "confidence":        req.confidence,
+        },
+        request={
+            "code":         req.code,
+            "language":     req.language,
+            "user_message": req.user_message,
+        }
+    )
+    return {"saved": True, "session_id": req.session_id}
+
 @app.get("/sessions")
 async def get_sessions(current_user: dict = Depends(get_current_user)):
     from app.memory.session_store import get_user_sessions

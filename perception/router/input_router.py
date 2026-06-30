@@ -44,13 +44,12 @@ def strip_ansi(text:str)->str:
     return ansi_escape.sub('', text).strip()
 
 async def dispatch(request: DebugRequest) -> list:
-    # Phase 1: run perception agents in parallel
     perception_tasks = []
 
     if request.images:
         perception_tasks.append(run_vision_agent(request))
 
-    if request.code:
+    if request.code:                              # ← only runs if code pasted
         perception_tasks.append(run_code_analysis_agent(request))
 
     if perception_tasks:
@@ -62,13 +61,12 @@ async def dispatch(request: DebugRequest) -> list:
         print("[router] no images or code — skipping perception")
         perception_results = []
 
-    # Phase 2: context builder reads from Redis lists written by agents above
     if request.images or request.code:
         context_result = await run_context_builder_agent(request)
     else:
         context_result = None
 
-    return [r for r in perception_results if r is not None]
+    return [r for r in perception_results if r is not None and not isinstance(r, Exception)]
 
 async def route_final(request: DebugRequest) -> dict:
     print(f"[router] session: {request.session_id}")
@@ -81,25 +79,34 @@ async def route_final(request: DebugRequest) -> dict:
 
     results = await dispatch(request)
 
-   
+    # ── extract agent results from perception output ───────────────────────
     vision_result = None
     code_result   = None
 
     for r in results:
-        if isinstance(r, dict):
-            if r.get("agent_id") == "vision_agent":
-                # unwrap the extractions from content
-                vision_result = r.get("content", {}).get("extractions", [None])[0]
-            elif r.get("agent_id") == "code_analysis_agent":
-                code_result = r.get("content") or r
+        if not r or not isinstance(r, dict):
+            continue
+        agent_id = r.get("agent_id", "")
+        content  = r.get("content", {})
+
+        if agent_id == "vision_agent":
+            extractions = content.get("extractions", []) if isinstance(content, dict) else []
+            if extractions:
+                # merge all extractions into one — use highest confidence one
+                best = max(extractions, key=lambda x: x.get("confidence", 0))
+                vision_result = best
+                print(f"[router] vision_result extracted: {vision_result.get('error_type')}, conf={vision_result.get('confidence')}")
+
+        elif agent_id == "code_analysis_agent":
+            code_result = content if isinstance(content, dict) else {}
 
     return {
         "session_id":          request.session_id,
         "modalities_detected": modalities,
         "agents_fired":        len(results),
-        "vision_result":       vision_result,   # ← orchestrator reads this key
-        "code_result":         code_result,     # ← orchestrator reads this key
-        "context":             None,            # ← context_builder result if needed
+        "context":             results[0] if results else None,
+        "vision_result":       vision_result,   # ← now top-level
+        "code_result":         code_result,     # ← now top-level
     }
 
 app = FastAPI()

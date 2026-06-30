@@ -213,10 +213,16 @@ const handleResult = (data: DebugResult) => {
   const handleSelectSession = async (id: string) => {
   try {
     const res = await authFetch(`${API_BASE}/sessions/${id}`)
+    if (!res.ok) {
+      console.error("[handleSelectSession] failed:", res.status)
+      return
+    }
     const data = await res.json()
     setSessionId(id)
     setCode(data.request?.code || "")
     setDescription(data.request?.user_message || "")
+    setLanguage(data.language || "python")   // ← was missing
+    setImages([])                             // ← clear stale images from previous session
     setResult({
       root_cause:  data.root_cause,
       patch:       data.patch,
@@ -226,19 +232,41 @@ const handleResult = (data: DebugResult) => {
     })
     setAppState("done")
   } catch (e) {
-    console.error("Failed to load session:", e)
+    console.error("[handleSelectSession] error:", e)
   }
-  }
+}
   
 
-  const handleNewSession = () => {
-    setAppState("idle")
-    setResult(null)
-    setCode("")
-    setDescription("")
-    setImages([])
-    setError(null)
+  const handleNewSession = async () => {
+  if (user && result && sessionId) {
+    try {
+      await authFetch(`${API_BASE}/sessions/save`, {
+        method: "POST",
+        body: JSON.stringify({
+          session_id:   sessionId,
+          root_cause:   result.root_cause  || "",
+          patch:        result.patch        || "",
+          explanation:  result.explanation  || "",
+          tests:        result.tests        || [],
+          confidence:   result.confidence   || 0.0,
+          code:         code                || "",
+          language:     language            || "python",
+          user_message: description         || "",
+        }),
+      })
+      console.log("[handleNewSession] session saved before clearing")
+    } catch (err) {
+      console.error("[handleNewSession] save failed:", err)
+    }
   }
+
+  setAppState("idle")
+  setResult(null)
+  setCode("")
+  setDescription("")
+  setImages([])
+  setError(null)
+}
 
   const handleLogin = (u: User) => {
     setUser(u)

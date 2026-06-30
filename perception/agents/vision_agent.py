@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from anthropic import Anthropic, APIError, APITimeoutError
 from redis import Redis
 import redis.asyncio as aioredis
+import re;
 
 load_dotenv()
 
@@ -88,20 +89,20 @@ def extract_from_image(image_base64: str) -> dict:
 
     # 2 — validate Claude returned something
     raw = response.content[0].text.strip()
-    if not raw:
-        raise ValueError("Claude returned empty response")
-
-    # 3 — safe JSON parse
+    
+    # Extract JSON object regardless of markdown wrapping
+    match = re.search(r'\{.*\}', raw, re.DOTALL)
+    if not match:
+        raise ValueError(f"No JSON object found in response: {raw[:100]}")
+    
     try:
-        result = json.loads(raw)
+        result = json.loads(match.group())
     except json.JSONDecodeError as e:
-        print(f"[vision_agent] ⚠️ Claude returned invalid JSON: {raw}")
         raise ValueError(f"JSON parse failed: {e}")
-
-    # 4 — validate confidence field exists
+    
     if "confidence" not in result:
         result["confidence"] = 0.0
-
+    
     return result
 
 

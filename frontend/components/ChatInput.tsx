@@ -76,6 +76,8 @@ export default function ChatInput({ appState, code: parentCode, description: par
     onStart(sessionId, code, description, language, images)
   }
 
+  
+
   const fileExt: Record<string, string> = {
     python: "py", javascript: "js", typescript: "ts", java: "java", cpp: "cpp", rust: "rs"
   }
