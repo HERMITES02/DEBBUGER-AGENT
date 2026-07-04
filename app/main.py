@@ -10,6 +10,7 @@ from app.memory.session_store import save_session, get_user_context
 from app.scoring.confidence import calculate_confidence
 from dotenv import load_dotenv
 import json, os
+import redis.asyncio as aioredis
 from app.auth.jwt import get_current_user_optional 
 
 load_dotenv()
@@ -177,13 +178,13 @@ async def get_session(
 @app.websocket("/ws/debug")
 async def ws_debug(ws: WebSocket):
     await ws.accept()
+    r_pubsub = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+    pubsub = r_pubsub.pubsub()
     try:
         data = await ws.receive_text()
         req = DebugRequest(**json.loads(data))
         session_id = req.session_id or "default-session"
 
-        r = await get_redis()
-        pubsub = r.pubsub()
         await pubsub.subscribe(f"agent:events:{session_id}")
 
         import asyncio
@@ -214,7 +215,8 @@ async def ws_debug(ws: WebSocket):
                 "user_id":           None,
                 "user_context":      None,
             })
-            await r.publish(
+            r_shared = await get_redis()
+            await r_shared.publish(
                 f"agent:events:{session_id}",
                 json.dumps({"type": "done", "session_id": session_id})
             )
@@ -229,7 +231,6 @@ async def ws_debug(ws: WebSocket):
             if msg_data.get("type") == "done":
                 break
 
-        await pubsub.unsubscribe(f"agent:events:{session_id}")
         await task
 
     except WebSocketDisconnect:
@@ -240,6 +241,11 @@ async def ws_debug(ws: WebSocket):
             await ws.send_json({"type": "error", "payload": str(e)})
         except:
             pass
+    finally:
+        await pubsub.unsubscribe()
+        await r_pubsub.aclose()
+
+
 @app.websocket("/ws/events/{session_id}")
 async def ws_events(ws: WebSocket, session_id: str):
     """
@@ -250,7 +256,7 @@ async def ws_events(ws: WebSocket, session_id: str):
     await ws.accept()
     print(f"[ws:events] client connected — session: {session_id}")
 
-    r = await get_redis()
+    r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
     pubsub = r.pubsub()
     await pubsub.subscribe(f"agent:events:{session_id}")
 

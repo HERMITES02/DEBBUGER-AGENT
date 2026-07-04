@@ -1,0 +1,8 @@
+out
+node_modules
+.vscode-test
+src
+webview
+tsconfig.json
+.gitignore
+**/*.map

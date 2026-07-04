@@ -147,23 +147,50 @@ def calculate_confidence(state: dict) -> float:
 
 
 def _apply_patch_to_code(original_code: str, patch_diff: str) -> str:
+    if not original_code or not patch_diff:
+        return original_code
     try:
-        original_lines = original_code.splitlines(keepends=True)
+        import re
+        original_lines = original_code.splitlines()
         result_lines   = list(original_lines)
 
+        current_idx = 0
         for line in patch_diff.splitlines():
-            if line.startswith("---") or line.startswith("+++") or line.startswith("@@"):
+            if line.startswith("---") or line.startswith("+++"):
                 continue
-            elif line.startswith("+"):
-                result_lines.append(line[1:] + "\n")
-            elif line.startswith("-"):
+            if line.startswith("@@"):
+                m = re.match(r"@@\s*-(\d+)", line)
+                if m:
+                    orig_start = int(m.group(1))
+                    current_idx = max(0, orig_start - 1)
+                continue
+            if line.startswith("-"):
                 target = line[1:]
-                for i, l in enumerate(result_lines):
-                    if l.rstrip() == target.rstrip():
-                        result_lines.pop(i)
-                        break
+                if current_idx < len(result_lines) and result_lines[current_idx].rstrip() == target.rstrip():
+                    result_lines.pop(current_idx)
+                else:
+                    found = -1
+                    for i, l in enumerate(result_lines):
+                        if l.rstrip() == target.rstrip():
+                            found = i
+                            break
+                    if found != -1:
+                        result_lines.pop(found)
+                        current_idx = found
+            elif line.startswith("+"):
+                result_lines.insert(current_idx, line[1:])
+                current_idx += 1
+            elif line.startswith(" ") or not line.startswith(("-", "+", "@")):
+                target = line[1:] if line.startswith(" ") else line
+                if current_idx < len(result_lines) and result_lines[current_idx].rstrip() == target.rstrip():
+                    current_idx += 1
+                else:
+                    for i in range(current_idx, len(result_lines)):
+                        if result_lines[i].rstrip() == target.rstrip():
+                            current_idx = i + 1
+                            break
 
-        return "".join(result_lines)
+        return "\n".join(result_lines)
     except Exception as e:
         print(f"[orchestrator] patch apply failed: {e} — using original")
         return original_code

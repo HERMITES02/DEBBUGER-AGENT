@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none';
+             style-src 'unsafe-inline' {{CSP_SOURCE}};
+             script-src 'unsafe-inline' {{CSP_SOURCE}};
+             img-src {{CSP_SOURCE}} data:;
+             connect-src ws: wss:;" />
+  <title>Debugger Agent</title>
+  <link rel="stylesheet" href="{{CSS_URI}}" />
+</head>
+<body>
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-icon">🐛</span>
+      <span class="brand-title">Debugger Agent</span>
+    </div>
+    <div id="status-badge" class="status-badge idle">
+      <span class="status-dot"></span>
+      <span id="status-text">idle</span>
+    </div>
+  </header>
+
+  <!-- ── Main layout ────────────────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- ── Left column: agent flowchart ────────────────────────────── -->
+    <section class="flowchart-col" id="flowchart-col">
+      <div class="section-label">Agent Pipeline</div>
+
+      <!-- User node -->
+      <div class="pipeline-user">
+        <div class="avatar">U</div>
+        <div class="connector-v"></div>
+        <div class="arrow-down">↓</div>
+        <div class="connector-v"></div>
+      </div>
+
+      <!-- Agent nodes (populated by JS) -->
+      <div id="pipeline-nodes" class="pipeline-nodes"></div>
+
+      <!-- Done node (hidden until all done) -->
+      <div id="pipeline-done" class="pipeline-done hidden">
+        <div class="connector-v success"></div>
+        <div class="done-circle">✓</div>
+        <div class="done-label">Complete</div>
+      </div>
+    </section>
+
+    <!-- ── Right column: results ────────────────────────────────────── -->
+    <section class="results-col" id="results-col">
+
+      <!-- Idle / welcome state -->
+      <div id="state-idle" class="state-screen">
+        <div class="idle-icon">🔍</div>
+        <h2 class="idle-title">Ready to Debug</h2>
+        <p class="idle-desc">Select code in the editor, right-click, and choose <strong>🐛 Debug with Agent</strong> to start the analysis pipeline.</p>
+        <div class="shortcut-hint">
+          <kbd>Right-click</kbd> → <strong>Debug with Agent</strong>
+        </div>
+      </div>
+
+      <!-- Running / connecting state -->
+      <div id="state-running" class="state-screen hidden">
+        <div class="spinner-ring"></div>
+        <p id="running-status" class="running-label">Connecting to agent pipeline…</p>
+        <div class="code-preview-box" id="code-preview-box">
+          <div class="code-preview-label">Debugging snippet</div>
+          <pre id="code-preview" class="code-preview"></pre>
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <div id="state-error" class="state-screen hidden">
+        <div class="error-icon">⚠️</div>
+        <h3 class="error-title">Something went wrong</h3>
+        <p id="error-message" class="error-msg"></p>
+        <button class="btn btn-secondary" onclick="resetToIdle()">← Try Again</button>
+      </div>
+
+      <!-- Results state -->
+      <div id="state-result" class="state-screen hidden">
+
+        <!-- Confidence bar -->
+        <div class="confidence-row">
+          <span class="confidence-label">Confidence</span>
+          <div class="confidence-bar-wrap">
+            <div class="confidence-bar" id="conf-bar"></div>
+          </div>
+          <span class="confidence-pct" id="conf-pct">—</span>
+        </div>
+
+        <!-- Root cause -->
+        <div class="result-card" id="card-root-cause">
+          <div class="card-header">
+            <span class="card-icon">🎯</span>
+            <span class="card-title">Root Cause</span>
+          </div>
+          <p id="root-cause-text" class="card-body"></p>
+        </div>
+
+        <!-- Explanation -->
+        <div class="result-card" id="card-explanation">
+          <div class="card-header">
+            <span class="card-icon">💡</span>
+            <span class="card-title">Explanation</span>
+          </div>
+          <p id="explanation-text" class="card-body"></p>
+        </div>
+
+        <!-- Patch diff -->
+        <div class="result-card" id="card-patch">
+          <div class="card-header">
+            <span class="card-icon">🩹</span>
+            <span class="card-title">Suggested Patch</span>
+            <div class="card-actions">
+              <button class="btn btn-ghost" id="copy-patch-btn" onclick="copyPatch()">📋 Copy</button>
+              <button class="btn btn-primary" id="apply-patch-btn" onclick="applyPatch()">⚡ Apply to Editor</button>
+            </div>
+          </div>
+          <pre id="patch-diff" class="patch-diff"></pre>
+        </div>
+
+        <!-- Tests -->
+        <div class="result-card" id="card-tests">
+          <div class="card-header">
+            <span class="card-icon">🧪</span>
+            <span class="card-title">Generated Tests</span>
+            <button class="btn btn-ghost" onclick="copyTests()">📋 Copy</button>
+          </div>
+          <pre id="tests-code" class="tests-code"></pre>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-row">
+          <button class="btn btn-secondary" onclick="resetToIdle()">🔄 New Debug Session</button>
+        </div>
+
+      </div><!-- /state-result -->
+
+    </section>
+  </main>
+
+  <script src="{{JS_URI}}"></script>
+</body>
+</html>

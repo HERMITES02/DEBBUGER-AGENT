@@ -22,12 +22,13 @@ class AgentMessage(BaseModel):
 
 #dev2 orchestrator gives format to dev1 to show on frontend
 class DebugResult(BaseModel):
-    session_id:  str
-    root_cause:  str
-    patch:       str
-    explanation: str
-    tests:       list[str] = []
-    confidence:  float     = 1.0
+    session_id:   str
+    root_cause:   str
+    patch:        str
+    patched_code: Optional[str] = None
+    explanation:  str
+    tests:        list[str] = []
+    confidence:   float     = 1.0
 
 class RouterResult(BaseModel):
     session_id:          str | None
