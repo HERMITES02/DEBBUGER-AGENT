@@ -1,23 +1,26 @@
 
-
 import asyncio, base64, re, sys
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
-from httpcore import request
-sys.path.append(str(Path(__file__).resolve().parents[2]))
+from fastapi.middleware.cors import CORSMiddleware
+
+# Allow running standalone OR imported from project root
+_root = str(Path(__file__).resolve().parents[2])
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
 from shared.schema import DebugRequest, AgentMessage
 from perception.agents.vision_agent import run_vision_agent
 from perception.agents.run_code_analysis_agent import run_code_analysis_agent
 from perception.agents.context_builder_agent import run_context_builder_agent
 
-
-from fastapi.middleware.cors import CORSMiddleware
-import json                          # ← add this import
-import redis.asyncio as aioredis     # ← async client, not sync
+import json
+import redis.asyncio as aioredis
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
 
 
 def classify(request: DebugRequest) -> list[dict]:
@@ -111,9 +114,16 @@ async def route_final(request: DebugRequest) -> dict:
 
 app = FastAPI()
 
+_cors_origins = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

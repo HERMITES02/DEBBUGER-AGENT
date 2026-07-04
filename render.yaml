@@ -1,0 +1,67 @@
+﻿# render.yaml — Two-service deployment blueprint
+# Render reads this file and creates both services automatically.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+
+  # ─────────────────────────────────────────────────────────
+  # Service 1: Main Backend  (FastAPI — port 8000)
+  # Handles: /debug, /auth, /sessions, /health, /ws/events/*
+  # ─────────────────────────────────────────────────────────
+  - type: web
+    name: debugger-agent-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # You fill this in Render dashboard
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: E2B_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./users.db
+      - key: MODEL_FAST
+        value: claude-haiku-4-5-20251001
+      - key: MODEL_SMART
+        value: claude-sonnet-4-5
+      - key: MODEL_VISION
+        value: claude-sonnet-4-5
+      - key: CORS_ORIGINS
+        sync: false          # Set to your Vercel URL in dashboard
+      # ← This tells the backend where the router service lives
+      - key: ROUTER_SERVICE_URL
+        fromService:
+          name: debugger-agent-router
+          type: web
+          property: host
+          envVarKey: ROUTER_SERVICE_URL
+
+  # ─────────────────────────────────────────────────────────
+  # Service 2: Input Router  (FastAPI — port 8001)
+  # Handles: /route, /health, /ws/{session_id}
+  # ─────────────────────────────────────────────────────────
+  - type: web
+    name: debugger-agent-router
+    runtime: python
+    buildCommand: pip install -r requirements-router.txt
+    startCommand: uvicorn perception.router.input_router:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MODEL_FAST
+        value: claude-haiku-4-5-20251001
+      - key: MODEL_SMART
+        value: claude-sonnet-4-5
+      - key: MODEL_VISION
+        value: claude-sonnet-4-5
+      # Allow calls from main backend and frontend
+      - key: CORS_ORIGINS
+        sync: false

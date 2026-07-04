@@ -210,7 +210,7 @@ async def call_router_node(state: AgentState) -> AgentState:
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                "http://localhost:8001/route",
+                os.getenv("ROUTER_SERVICE_URL", "http://localhost:8001") + "/route",
                 json={
                     "session_id":   sid,
                     "user_message": state["user_request"],
