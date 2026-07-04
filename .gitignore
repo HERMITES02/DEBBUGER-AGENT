@@ -115,3 +115,16 @@ scratch/
 *.bin
 *.safetensors
 *.gguf
+
+# ── SQLite databases (generated at runtime) ──────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── One-off test / utility scripts ───────────────────
+tobase64.py
+test_redis.py
+test_error.png
+
+# ── VS Code extension compiled output ────────────────
+vscode-extension/out/
