@@ -53,7 +53,7 @@ and confidence below 0.3.
 """
 
 def setup_parser():
-    PY_LANGUAGE = Language(tspython.language())
+    PY_LANGUAGE = Language(tspython.language(), "python")
     parser = Parser(PY_LANGUAGE)
     return parser
 parser = setup_parser() 
