@@ -50,7 +50,7 @@ export default function AuthModal({ onClose, onLogin, onApiLogin, onApiRegister 
       />
 
       {/* Modal */}
-      <div style={{
+      <div className="auth-modal" style={{
         position: "fixed",
         top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",

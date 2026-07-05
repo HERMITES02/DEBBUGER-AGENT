@@ -103,7 +103,7 @@ export default function DiffViewer({
           </div>
 
           {/* Legend */}
-          <div style={{ display: "flex", gap: "16px" }}>
+          <div className="diff-legend" style={{ display: "flex", gap: "16px" }}>
             {[
               { color: "#98c379", label: "added" },
               { color: "#f14c4c", label: "removed" },
@@ -122,7 +122,7 @@ export default function DiffViewer({
         </div>
 
         {/* Diff lines */}
-        <div style={{
+        <div className="diff-lines" style={{
           padding: "8px 0",
           maxHeight: "400px",
           overflowY: "auto"
@@ -170,7 +170,7 @@ export default function DiffViewer({
                 </div>
 
                 {/* Content */}
-                <div style={{
+                <div className="diff-line-content" style={{
                   flex: 1,
                   color: isAdded ? "#98c379" : isRemoved ? "#f14c4c" : "#d4d4d4",
                   fontSize: "13px",

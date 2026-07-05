@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface Session {
   id: string
@@ -22,15 +22,37 @@ interface SidebarProps {
   onLoginClick: () => void
   onLogout: () => void
   onOpenSessions: () => void
+  onMobileToggle?: () => void
+  isMobileOpen?: boolean
 }
 
 export default function Sidebar({
   sessions, onNewSession, onSelectSession,
-  currentSessionId, user, onLoginClick, onLogout, onOpenSessions
+  currentSessionId, user, onLoginClick, onLogout, onOpenSessions,
+  onMobileToggle, isMobileOpen
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [recentsOpen, setRecentsOpen] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // On mobile, "expanded" follows isMobileOpen
+  const isExpanded = isMobile ? (isMobileOpen || false) : expanded
+
+  const handleToggle = () => {
+    if (isMobile) {
+      onMobileToggle?.()
+    } else {
+      setExpanded(!expanded)
+    }
+  }
 
   const initials = user?.name
     ? user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
@@ -42,34 +64,38 @@ export default function Sidebar({
   }
 
   return (
-    <div style={{
-      width: expanded ? "240px" : "48px",
-      height: "100vh",
-      backgroundColor: "#161616",
-      borderRight: "1px solid #2a2a2a",
-      display: "flex",
-      flexDirection: "column",
-      transition: "width 0.25s ease",
-      overflow: "hidden",
-      flexShrink: 0,
-      zIndex: 10,
-      position: "relative",
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace"
-    }}>
+    <div
+      className="sidebar-root"
+      data-collapsed={!isExpanded ? "true" : "false"}
+      style={{
+        width: isExpanded ? "240px" : "48px",
+        height: "100vh",
+        backgroundColor: "#161616",
+        borderRight: "1px solid #2a2a2a",
+        display: "flex",
+        flexDirection: "column",
+        transition: "width 0.25s ease",
+        overflow: "hidden",
+        flexShrink: 0,
+        zIndex: 10,
+        position: "relative",
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace"
+      }}
+    >
 
       {/* Top icons */}
       <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", gap: "2px" }}>
-        <SidebarBtn icon="→" label="Toggle" expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-          extraStyle={{ transform: expanded ? "rotate(180deg)" : "none" }} />
-        <SidebarBtn icon="+" label="New session" expanded={expanded}
+        <SidebarBtn icon="→" label="Toggle" expanded={isExpanded}
+          onClick={handleToggle}
+          extraStyle={{ transform: isExpanded ? "rotate(180deg)" : "none" }} />
+        <SidebarBtn icon="+" label="New session" expanded={isExpanded}
           onClick={user ? onNewSession : onLoginClick} />
-        <SidebarBtn icon="□" label="Sessions" expanded={expanded}
+        <SidebarBtn icon="□" label="Sessions" expanded={isExpanded}
           onClick={handleSessionsClick} />
       </div>
 
       {/* Recents header — only visible when expanded */}
-      {expanded && (
+      {isExpanded && (
         <div
           onClick={() => setRecentsOpen(!recentsOpen)}
           style={{
@@ -94,7 +120,7 @@ export default function Sidebar({
       )}
 
       {/* Inline session list — only visible when expanded and recentsOpen */}
-      {expanded && recentsOpen && (
+      {isExpanded && recentsOpen && (
         <div style={{
           flex: 1,
           overflowY: "auto",
@@ -150,7 +176,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {(!expanded || !recentsOpen) && <div style={{ flex: 1 }} />}
+      {(!isExpanded || !recentsOpen) && <div style={{ flex: 1 }} />}
 
       {/* Bottom — login or user profile */}
       <div style={{ padding: "12px", borderTop: "1px solid #2a2a2a" }}>
@@ -174,7 +200,7 @@ export default function Sidebar({
               }}>
                 {initials}
               </div>
-              {expanded && (
+              {isExpanded && (
                 <div style={{ overflow: "hidden" }}>
                   <div style={{
                     fontSize: "11px", color: "#d4d4d4",
@@ -191,7 +217,7 @@ export default function Sidebar({
             {showUserMenu && (
               <div style={{
                 position: "absolute", bottom: "40px",
-                left: expanded ? "0" : "48px",
+                left: isExpanded ? "0" : "48px",
                 backgroundColor: "#252526",
                 border: "1px solid #3e3e42",
                 borderRadius: "8px",
@@ -246,7 +272,7 @@ export default function Sidebar({
             }}>
               👤
             </div>
-            {expanded && (
+            {isExpanded && (
               <div style={{ fontSize: "11px", color: "#007acc", whiteSpace: "nowrap" }}>
                 sign in
               </div>

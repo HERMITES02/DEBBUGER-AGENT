@@ -15,12 +15,10 @@ interface ChatInputProps {
   code: string
   description: string
   result: any
-  onStart: (sessionId: string, code: string, description: string, language: string, images: string[]) => void  // ← add language + images
+  onStart: (sessionId: string, code: string, description: string, language: string, images: string[]) => void
   onResult: (result: any) => void
   onNewSession: () => void
-
 }
-
 
 export default function ChatInput({ appState, code: parentCode, description: parentDesc, result, onStart, onResult, onNewSession }: ChatInputProps) {
   const [code, setCode] = useState("")
@@ -40,16 +38,14 @@ export default function ChatInput({ appState, code: parentCode, description: par
     return () => clearInterval(interval)
   }, [])
 
-
   useEffect(() => {
-  if (appState === "idle") {
-    setCode("")
-    setDescription("")
-    setImages([])
-  }
+    if (appState === "idle") {
+      setCode("")
+      setDescription("")
+      setImages([])
+    }
   }, [appState])
-  
-  
+
   const handleImageUpload = (file: File) => {
     const reader = new FileReader()
     reader.onload = () => setImages(prev => [...prev, reader.result as string])
@@ -62,7 +58,6 @@ export default function ChatInput({ appState, code: parentCode, description: par
     if (file?.type.startsWith("image/")) handleImageUpload(file)
   }
 
-  // ── Fix 2: replace handleSubmit completely ────────────────────────────────
   const handleSubmit = async () => {
     if (!code && images.length === 0) {
       alert("Please provide code or an image")
@@ -72,20 +67,15 @@ export default function ChatInput({ appState, code: parentCode, description: par
     const sessionId = crypto.randomUUID()
     setLoading(true)
 
-    // ✅ pass language + images array (not images.length)
     onStart(sessionId, code, description, language, images)
   }
-
-  
 
   const fileExt: Record<string, string> = {
     python: "py", javascript: "js", typescript: "ts", java: "java", cpp: "cpp", rust: "rs"
   }
 
   return (
-
-
-    <div style={{
+    <div className="chat-container" style={{
       flex: 1,
       display: "flex",
       flexDirection: "column",
@@ -97,15 +87,15 @@ export default function ChatInput({ appState, code: parentCode, description: par
       position: "relative"
     }}>
 
-      {/* HERO — shown in idle AND running (no blank space during processing) */}
+      {/* HERO — shown in idle AND running */}
       {(appState === "idle" || appState === "running") && (
-        <div style={{
+        <div className="chat-hero" style={{
           textAlign: "center",
           marginBottom: "2rem",
           width: "100%", maxWidth: "760px",
           flexShrink: 0
         }}>
-          <div style={{
+          <div className="chat-hero-icon" style={{
             width: "56px", height: "56px", borderRadius: "14px",
             backgroundColor: "#252526", border: "1px solid #3e3e42",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -118,7 +108,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
             <span style={{ color: "#6a6a6a", fontSize: "22px" }}>()</span>
           </h1>
           {appState === "idle" && (
-            <div style={{
+            <div className="chat-pill-tags" style={{
               display: "flex", gap: "8px",
               flexWrap: "wrap",
               justifyContent: "center",
@@ -148,7 +138,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
       )}
 
       {/* MAIN BOX — anchored at bottom, expands upward */}
-      <div style={{
+      <div className="chat-main-box" style={{
         width: "100%", maxWidth: "760px",
         display: "flex", flexDirection: "column",
         maxHeight: "calc(100vh - 140px)",
@@ -156,8 +146,8 @@ export default function ChatInput({ appState, code: parentCode, description: par
       }}>
 
         {/* RESULTS / CODE — scrollable area above input */}
-        {(appState === "running" || appState === "done" ) && (
-          <div style={{
+        {(appState === "running" || appState === "done") && (
+          <div className="results-panel" style={{
             backgroundColor: "#1c1c1c",
             border: "1px solid #2a2a2a",
             borderBottom: "none",
@@ -196,7 +186,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
                     color: "#5a5a5a", fontSize: "12px", padding: "10px 8px",
                     minWidth: "36px", textAlign: "right", userSelect: "none",
                     lineHeight: "1.6", borderRight: "1px solid #2a2a2a",
-                  flexShrink: 0
+                    flexShrink: 0
                   }}>
                     {code.split("\n").map((_, i) => <div key={i}>{i + 1}</div>)}
                   </div>
@@ -213,7 +203,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
             {appState === "done" && result && (
               <>
                 {result.root_cause && (
-                  <div style={{
+                  <div className="result-card" style={{
                     backgroundColor: "#252526", border: "1px solid #3e3e42",
                     borderRadius: "8px", padding: "14px 18px"
                   }}>
@@ -227,7 +217,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
                 )}
 
                 {result.explanation && (
-                  <div style={{
+                  <div className="result-card" style={{
                     backgroundColor: "#252526", border: "1px solid #3e3e42",
                     borderRadius: "8px", padding: "14px 18px"
                   }}>
@@ -320,7 +310,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
                   background: "radial-gradient(ellipse, rgba(152,195,121,0.25) 0%, transparent 70%)"
                 }} />
               </div>
-              <div style={{
+              <div className="chat-code-area" style={{
                 display: "flex",
                 backgroundColor: "#1e1e1e",
                 maxHeight: "260px",
@@ -352,89 +342,86 @@ export default function ChatInput({ appState, code: parentCode, description: par
           )}
 
           {/* Bottom bar */}
-          <div style={{
+          <div className="chat-input-bar" style={{
             display: "flex", alignItems: "center", gap: "8px",
             padding: "10px 12px", borderTop: "1px solid #2a2a2a",
             backgroundColor: "#252526"
           }}>
 
             {/* Camera / image attachment area */}
-<div style={{ position: "relative" }}>
-  <div
-    onDrop={e => {
-      e.preventDefault()
-      setDragOver(false)
-      const f = e.dataTransfer.files?.[0]
-      if (f?.type.startsWith("image/")) handleImageUpload(f)
-    }}
-    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-    onDragLeave={() => setDragOver(false)}
-    onClick={() => document.getElementById("imgInput")?.click()}
-    style={{
-      width: "34px", height: "34px", borderRadius: "8px",
-      background: dragOver
-        ? "rgba(197,134,192,0.3)"
-        : images.length > 0
-          ? "rgba(197,134,192,0.2)"
-          : "radial-gradient(ellipse, rgba(197,134,192,0.15) 0%, transparent 70%)",
-      border: `1px solid ${images.length > 0 ? "#c586c0" : dragOver ? "#c586c0" : "#3e3e42"}`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      cursor: "pointer", flexShrink: 0, transition: "all 0.15s",
-      position: "relative", overflow: "hidden"
-    }}
-  >
-    <input
-      id="imgInput"
-      type="file"
-      accept="image/*"
-      style={{ display: "none" }}
-      onChange={e => {
-        const f = e.target.files?.[0]
-        if (f) handleImageUpload(f)
-        // reset so same file can be re-selected
-        e.target.value = ""
-      }}
-    />
+            <div style={{ position: "relative" }}>
+              <div
+                onDrop={e => {
+                  e.preventDefault()
+                  setDragOver(false)
+                  const f = e.dataTransfer.files?.[0]
+                  if (f?.type.startsWith("image/")) handleImageUpload(f)
+                }}
+                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onClick={() => document.getElementById("imgInput")?.click()}
+                style={{
+                  width: "34px", height: "34px", borderRadius: "8px",
+                  background: dragOver
+                    ? "rgba(197,134,192,0.3)"
+                    : images.length > 0
+                      ? "rgba(197,134,192,0.2)"
+                      : "radial-gradient(ellipse, rgba(197,134,192,0.15) 0%, transparent 70%)",
+                  border: `1px solid ${images.length > 0 ? "#c586c0" : dragOver ? "#c586c0" : "#3e3e42"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0, transition: "all 0.15s",
+                  position: "relative", overflow: "hidden"
+                }}
+              >
+                <input
+                  id="imgInput"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    const f = e.target.files?.[0]
+                    if (f) handleImageUpload(f)
+                    e.target.value = ""
+                  }}
+                />
 
-    {images.length > 0 ? (
-      // Show thumbnail of first image
-      <img
-        src={images[0]}
-        alt="attached"
-        style={{
-          width: "100%", height: "100%",
-          objectFit: "cover", borderRadius: "7px"
-        }}
-      />
-    ) : (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-        stroke="#c586c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
-      </svg>
-    )}
-  </div>
+                {images.length > 0 ? (
+                  <img
+                    src={images[0]}
+                    alt="attached"
+                    style={{
+                      width: "100%", height: "100%",
+                      objectFit: "cover", borderRadius: "7px"
+                    }}
+                  />
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="#c586c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                )}
+              </div>
 
-  {/* Badge + remove button when image attached */}
-  {images.length > 0 && (
-    <div
-      onClick={e => { e.stopPropagation(); setImages([]) }}
-      style={{
-        position: "absolute", top: "-6px", right: "-6px",
-        width: "14px", height: "14px", borderRadius: "50%",
-        backgroundColor: "#f14c4c", border: "1px solid #1e1e1e",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", fontSize: "9px", color: "#fff", fontWeight: "bold",
-        zIndex: 10
-      }}
-    >
-      ×
-    </div>
-  )}
-</div>
+              {images.length > 0 && (
+                <div
+                  onClick={e => { e.stopPropagation(); setImages([]) }}
+                  style={{
+                    position: "absolute", top: "-6px", right: "-6px",
+                    width: "14px", height: "14px", borderRadius: "50%",
+                    backgroundColor: "#f14c4c", border: "1px solid #1e1e1e",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", fontSize: "9px", color: "#fff", fontWeight: "bold",
+                    zIndex: 10
+                  }}
+                >
+                  ×
+                </div>
+              )}
+            </div>
 
             {/* Description — blue blur */}
-            <div style={{
+            <div className="chat-description-input" style={{
               flex: 1,
               background: "radial-gradient(ellipse at left, rgba(86,156,214,0.08) 0%, transparent 60%)",
               border: "1px solid #3e3e42", borderRadius: "8px",
@@ -448,13 +435,14 @@ export default function ChatInput({ appState, code: parentCode, description: par
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && appState === "idle") handleSubmit() }}
                 style={{
                   flex: 1, backgroundColor: "transparent", border: "none",
-                  color: "#d4d4d4", fontSize: "12px", fontFamily: "inherit", outline: "none"
+                  color: "#d4d4d4", fontSize: "12px", fontFamily: "inherit", outline: "none",
+                  minWidth: 0
                 }}
               />
             </div>
 
             {/* Language */}
-            <select value={language} onChange={e => setLanguage(e.target.value)} style={{
+            <select className="lang-select" value={language} onChange={e => setLanguage(e.target.value)} style={{
               backgroundColor: "#1e1e1e", border: "1px solid #3e3e42",
               borderRadius: "6px", color: "#ce9178", padding: "6px 8px",
               fontSize: "11px", fontFamily: "inherit", cursor: "pointer", outline: "none"
@@ -463,93 +451,80 @@ export default function ChatInput({ appState, code: parentCode, description: par
             </select>
 
             {/* Running — code display + image if attached */}
-{appState === "running" && (
-  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {appState === "running" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {images.length > 0 && (
+                  <div style={{
+                    backgroundColor: "#252526", border: "1px solid #3e3e42",
+                    borderRadius: "8px", padding: "10px 14px"
+                  }}>
+                    <div style={{
+                      color: "#c586c0", fontSize: "10px", letterSpacing: "0.1em",
+                      marginBottom: "8px", fontWeight: "600"
+                    }}>
+                      SCREENSHOT ({images.length})
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {images.map((img, i) => (
+                        <img
+                          key={i}
+                          src={img}
+                          alt={`screenshot ${i + 1}`}
+                          style={{
+                            maxWidth: "200px", maxHeight: "120px",
+                            borderRadius: "4px", border: "1px solid #3e3e42",
+                            objectFit: "contain"
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div style={{
+                      color: "#6a9955", fontSize: "11px", marginTop: "6px",
+                      display: "flex", alignItems: "center", gap: "6px"
+                    }}>
+                      <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>
+                      vision agent extracting error from screenshot...
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
-    {/* Show attached images */}
-    {images.length > 0 && (
-      <div style={{
-        backgroundColor: "#252526", border: "1px solid #3e3e42",
-        borderRadius: "8px", padding: "10px 14px"
-      }}>
-        <div style={{
-          color: "#c586c0", fontSize: "10px", letterSpacing: "0.1em",
-          marginBottom: "8px", fontWeight: "600"
-        }}>
-          SCREENSHOT ({images.length})
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {images.map((img, i) => (
-            <img
-              key={i}
-              src={img}
-              alt={`screenshot ${i + 1}`}
-              style={{
-                maxWidth: "200px", maxHeight: "120px",
-                borderRadius: "4px", border: "1px solid #3e3e42",
-                objectFit: "contain"
-              }}
-            />
-          ))}
-        </div>
-        <div style={{
-          color: "#6a9955", fontSize: "11px", marginTop: "6px",
-          display: "flex", alignItems: "center", gap: "6px"
-        }}>
-          <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>
-          vision agent extracting error from screenshot...
-        </div>
-      </div>
-    )}
-
-    {/* Existing code display */}
-    {code && (
-      <div style={{
-        backgroundColor: "#252526", border: "1px solid #3e3e42",
-        borderRadius: "8px", overflow: "hidden"
-      }}>
-        {/* ... existing code display JSX unchanged ... */}
-      </div>
-    )}
-  </div>
-)}
-{/* Done — results */}
-{appState === "done" && result && (
-  <>
-    {/* Show images that were analysed */}
-    {images.length > 0 && (
-      <div style={{
-        backgroundColor: "#252526", border: "1px solid #3e3e42",
-        borderLeft: "3px solid #c586c0",
-        borderRadius: "8px", padding: "12px 16px",
-        display: "flex", gap: "12px", alignItems: "flex-start"
-      }}>
-        <img
-          src={images[0]}
-          alt="analysed screenshot"
-          style={{
-            width: "80px", height: "60px",
-            objectFit: "contain", borderRadius: "4px",
-            border: "1px solid #3e3e42", flexShrink: 0
-          }}
-        />
-        <div>
-          <div style={{
-            color: "#c586c0", fontSize: "10px",
-            letterSpacing: "0.1em", marginBottom: "4px", fontWeight: "600"
-          }}>
-            VISION ANALYSIS
-          </div>
-          <div style={{ color: "#d4d4d4", fontSize: "12px", lineHeight: "1.5" }}>
-            Screenshot analysed by vision agent ✓
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* existing root_cause, explanation, patch, tests, confidence blocks unchanged */}
-  </>
-)}
+            {/* Done — results */}
+            {appState === "done" && result && (
+              <>
+                {images.length > 0 && (
+                  <div style={{
+                    backgroundColor: "#252526", border: "1px solid #3e3e42",
+                    borderLeft: "3px solid #c586c0",
+                    borderRadius: "8px", padding: "12px 16px",
+                    display: "flex", gap: "12px", alignItems: "flex-start",
+                    flexWrap: "wrap"
+                  }}>
+                    <img
+                      src={images[0]}
+                      alt="analysed screenshot"
+                      style={{
+                        width: "80px", height: "60px",
+                        objectFit: "contain", borderRadius: "4px",
+                        border: "1px solid #3e3e42", flexShrink: 0
+                      }}
+                    />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        color: "#c586c0", fontSize: "10px",
+                        letterSpacing: "0.1em", marginBottom: "4px", fontWeight: "600"
+                      }}>
+                        VISION ANALYSIS
+                      </div>
+                      <div style={{ color: "#d4d4d4", fontSize: "12px", lineHeight: "1.5" }}>
+                        Screenshot analysed by vision agent ✓
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Debug / new */}
             {appState === "done" ? (
@@ -580,6 +555,5 @@ export default function ChatInput({ appState, code: parentCode, description: par
         </div>
       </div>
     </div>
-
   )
 }
