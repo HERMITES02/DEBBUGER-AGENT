@@ -470,15 +470,15 @@ def build_graph():
     graph.add_node("call_router", call_router_node)
     graph.add_node("search",      search_node)
     graph.add_node("analyse",     analyse_node)
-    graph.add_node("patch",       patch_node)
+    graph.add_node("patch_gen",   patch_node)
     graph.add_node("test",        test_node)
     graph.add_node("score",       score_node)
 
     graph.set_entry_point("call_router")
     graph.add_edge("call_router", "search")
     graph.add_edge("search",      "analyse")
-    graph.add_edge("analyse",     "patch")
-    graph.add_edge("patch",       "test")
+    graph.add_edge("analyse",     "patch_gen")
+    graph.add_edge("patch_gen",   "test")
     graph.add_edge("test",        "score")
     graph.add_edge("score",       END)
 
