@@ -1,4 +1,4 @@
-﻿# render.yaml — Two-service deployment blueprint
+# render.yaml — Two-service deployment blueprint
 # Render reads this file and creates both services automatically.
 # Docs: https://render.com/docs/blueprint-spec
 
@@ -34,13 +34,15 @@ services:
         value: claude-sonnet-4-5
       - key: CORS_ORIGINS
         sync: false          # Set to your Vercel URL in dashboard
-      # ← This tells the backend where the router service lives
+      # ← This auto-fills with the router's URL
+      #   (e.g. https://debugger-agent-router.onrender.com)
+      #   `property` and `envVarKey` are mutually exclusive —
+      #   use `property` for service metadata like host/hostport.
       - key: ROUTER_SERVICE_URL
         fromService:
           name: debugger-agent-router
           type: web
-          property: host
-          envVarKey: ROUTER_SERVICE_URL
+          property: hostport
 
   # ─────────────────────────────────────────────────────────
   # Service 2: Input Router  (FastAPI — port 8001)

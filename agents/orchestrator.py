@@ -207,10 +207,14 @@ async def call_router_node(state: AgentState) -> AgentState:
     code_analysis   = None
     context_summary = ""
 
+    # Build router URL — Render's fromService gives bare hostname, local dev gives full URL
+    _router_raw = os.getenv("ROUTER_SERVICE_URL", "http://localhost:8001")
+    _router_base = _router_raw if "://" in _router_raw else f"https://{_router_raw}"
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                os.getenv("ROUTER_SERVICE_URL", "http://localhost:8001") + "/route",
+                _router_base + "/route",
                 json={
                     "session_id":   sid,
                     "user_message": state["user_request"],
