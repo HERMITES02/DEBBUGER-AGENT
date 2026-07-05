@@ -14,7 +14,7 @@ export interface DebugResult {
 
 // ── set this to false to use real backend ───────────────────────────────
 
-const API_BASE = "http://localhost:8000"
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 
 // ── helper: get stored token ───────────────────────────────────────────────
 function getToken(): string | null {

@@ -58,8 +58,10 @@ export default function AgentFlowChart({ sessionId, isRunning, onReady }: AgentF
     setEvents([])
     setVisibleNodes([])
 
-    // ── Fix: use /ws/events/{session_id} — subscribe only, no orchestrator ──
-    const ws = new WebSocket(`ws://localhost:8000/ws/events/${sessionId}`)
+    // ── Build WebSocket URL from backend URL env var ──────────────────
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+    const wsUrl = backendUrl.replace(/^http/, "ws") + `/ws/events/${sessionId}`
+    const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
       setConnected(true)
