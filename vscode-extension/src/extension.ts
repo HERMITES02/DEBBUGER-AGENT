@@ -17,7 +17,7 @@ function getBackendUrl(): string {
   const cfg = vscode.workspace.getConfiguration('debugAgent');
   // Default to localhost for dev; set debugAgent.backendUrl in VS Code settings for production
   // e.g. https://debugger-agent.up.railway.app or https://debugger-agent.fly.dev
-  return (cfg.get<string>('backendUrl') || 'http://localhost:8000').replace(/\/$/, '');
+  return (cfg.get<string>('backendUrl') || 'https://debbuger-agent.onrender.com').replace(/\/$/, '');
 }
 
 // ── Extension activation ──────────────────────────────────────────────────
