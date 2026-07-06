@@ -4,6 +4,10 @@
   "description": "AI-powered multi-agent debugger — select code, right-click, and watch the live agent flowchart diagnose and fix your bugs.",
   "version": "0.1.0",
   "publisher": "debugger-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jatin5233/DEBBUGER-AGENT.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

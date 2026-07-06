@@ -1,8 +1,6 @@
-out
-node_modules
+.vscode
 .vscode-test
 src
-webview
 tsconfig.json
 .gitignore
 **/*.map
