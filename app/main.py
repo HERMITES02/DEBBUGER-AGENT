@@ -52,15 +52,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Debug Agent API", version="0.1.0", lifespan=lifespan)
 
-_cors_origins = [
-    o.strip()
-    for o in os.getenv("CORS_ORIGINS", os.getenv("CORS_ORIGIN", "http://localhost:3000")).split(",")
-    if o.strip()
-]
+_cors_raw = os.getenv("CORS_ORIGINS") or os.getenv("CORS_ORIGIN") or "http://localhost:3000"
+_cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+print(f"[startup] CORS origins loaded: {_cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
