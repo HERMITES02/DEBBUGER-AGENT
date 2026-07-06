@@ -36,13 +36,13 @@ export default function SessionsView({
       display: "flex",
       justifyContent: "center"
     }}>
-      <div style={{
+      <div className="sessions-container" style={{
         width: "100%", maxWidth: "820px",
         padding: "4rem 2rem 3rem"
       }}>
 
         {/* Header */}
-        <div style={{
+        <div className="sessions-header" style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           marginBottom: "1.5rem"
         }}>
@@ -94,7 +94,8 @@ export default function SessionsView({
             placeholder="Search sessions..."
             style={{
               flex: 1, backgroundColor: "transparent", border: "none",
-              color: "#d4d4d4", fontSize: "13px", fontFamily: "inherit", outline: "none"
+              color: "#d4d4d4", fontSize: "13px", fontFamily: "inherit", outline: "none",
+              minWidth: 0
             }}
           />
           {search && (
@@ -119,6 +120,7 @@ export default function SessionsView({
           )}
           {filtered.map((s, i) => (
             <div key={s.id} onClick={() => onSelectSession(s.id)}
+              className="session-row"
               style={{
                 padding: "16px 20px", cursor: "pointer",
                 borderBottom: i < filtered.length - 1 ? "1px solid #232323" : "none",
@@ -136,7 +138,7 @@ export default function SessionsView({
                   (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
               }}
             >
-              <span style={{
+              <span className="session-title" style={{
                 color: "#d4d4d4", fontSize: "14px",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
               }}>{s.title}</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import Sidebar from "@/components/SideBar"
 import AuthModal from "@/components/AuthModal"
 import ChatInput from "@/components/ChatInput"
@@ -11,6 +11,7 @@ import { apiLogin, apiRegister } from "@/hooks/usedebugger"
 
 export default function Home() {
   const wsReadyResolveRef = useRef<(() => void) | null>(null)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const {
     appState, sessionId, code, description,
@@ -30,15 +31,30 @@ export default function Home() {
       color: "#d4d4d4"
     }}>
 
+      {/* Mobile sidebar overlay backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileSidebarOpen(false)}
+          style={{
+            position: "fixed", inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            zIndex: 998
+          }}
+        />
+      )}
+
       <Sidebar
         sessions={sessions}
-        onNewSession={() => { handleNewSession(); setShowSessionsView(false) }}
-        onSelectSession={(id) => { handleSelectSession(id); setShowSessionsView(false) }}
+        onNewSession={() => { handleNewSession(); setShowSessionsView(false); setMobileSidebarOpen(false) }}
+        onSelectSession={(id) => { handleSelectSession(id); setShowSessionsView(false); setMobileSidebarOpen(false) }}
         currentSessionId={sessionId}
         user={user}
-        onOpenSessions={() => setShowSessionsView(true)}
-        onLoginClick={() => setShowAuth(true)}
+        onOpenSessions={() => { setShowSessionsView(true); setMobileSidebarOpen(false) }}
+        onLoginClick={() => { setShowAuth(true); setMobileSidebarOpen(false) }}
         onLogout={handleLogout}
+        onMobileToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        isMobileOpen={mobileSidebarOpen}
       />
 
       {/* Show error banner if something went wrong */}
@@ -79,7 +95,7 @@ export default function Home() {
       />
 
       {/* Always mounted — hidden via CSS when not running so WebSocket connects before API call */}
-      <div style={{
+      <div className="flowchart-panel" style={{
         width: showFlowchart ? "300px" : "0px",
         overflow: "hidden",
         borderLeft: showFlowchart ? "1px solid #2a2a2a" : "none",
@@ -123,7 +139,7 @@ export default function Home() {
     display: "flex", alignItems: "center", justifyContent: "center",
     zIndex: 200
   }}>
-    <div style={{
+    <div className="login-prompt-card" style={{
       backgroundColor: "#252526",
       border: "1px solid #3e3e42",
       borderRadius: "12px",

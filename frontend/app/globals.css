@@ -24,3 +24,163 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ─── Responsive: Sidebar ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-root {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    z-index: 999 !important;
+    height: 100vh !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  .sidebar-root[data-collapsed="true"] {
+    position: relative !important;
+    width: 48px !important;
+    box-shadow: none;
+  }
+  .sidebar-overlay {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-overlay {
+    display: none !important;
+  }
+}
+
+/* ─── Responsive: Main Layout ─────────────────────────────── */
+@media (max-width: 768px) {
+  .flowchart-panel {
+    display: none !important;
+  }
+}
+
+/* ─── Responsive: ChatInput ───────────────────────────────── */
+@media (max-width: 768px) {
+  .chat-container {
+    padding: 1rem 0.75rem !important;
+  }
+  .chat-hero h1 {
+    font-size: 22px !important;
+  }
+  .chat-hero-icon {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+  }
+  .chat-main-box {
+    max-height: calc(100vh - 100px) !important;
+  }
+  .chat-input-bar {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 8px 8px !important;
+  }
+  .chat-input-bar .lang-select {
+    order: -1;
+    flex: 0 0 auto;
+  }
+  .chat-description-input {
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+  .chat-code-area {
+    max-height: 180px !important;
+  }
+  .chat-pill-tags {
+    gap: 4px !important;
+  }
+  .chat-pill-tags span {
+    font-size: 10px !important;
+    padding: 2px 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-hero h1 {
+    font-size: 18px !important;
+  }
+  .chat-container {
+    padding: 0.5rem 0.5rem !important;
+  }
+  .chat-code-area {
+    max-height: 140px !important;
+  }
+  .results-panel {
+    padding: 0.75rem 0.75rem !important;
+  }
+  .result-card {
+    padding: 10px 12px !important;
+  }
+}
+
+/* ─── Responsive: Auth Modal ──────────────────────────────── */
+@media (max-width: 480px) {
+  .auth-modal {
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
+    padding: 1.5rem !important;
+  }
+}
+
+/* ─── Responsive: Login Prompt ────────────────────────────── */
+@media (max-width: 480px) {
+  .login-prompt-card {
+    max-width: calc(100vw - 48px) !important;
+    padding: 1.5rem !important;
+  }
+}
+
+/* ─── Responsive: Sessions View ───────────────────────────── */
+@media (max-width: 768px) {
+  .sessions-container {
+    padding: 2rem 1rem 2rem !important;
+  }
+  .sessions-header h1 {
+    font-size: 22px !important;
+  }
+  .sessions-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .session-row {
+    padding: 12px 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+  .session-title {
+    white-space: normal !important;
+    -webkit-line-clamp: 2 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+}
+
+/* ─── Responsive: DiffViewer ──────────────────────────────── */
+@media (max-width: 768px) {
+  .diff-legend {
+    display: none !important;
+  }
+  .diff-lines {
+    max-height: 300px !important;
+  }
+  .diff-line-content {
+    font-size: 11px !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+  }
+}
+
+/* ─── Responsive: AgentFlowChart (tablet — show smaller) ──── */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .flowchart-panel {
+    width: 200px !important;
+    padding: 0.75rem 1rem !important;
+  }
+}
