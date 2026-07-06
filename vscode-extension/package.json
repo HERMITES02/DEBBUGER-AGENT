@@ -49,7 +49,7 @@
       "properties": {
         "debugAgent.backendUrl": {
           "type": "string",
-          "default": "http://localhost:8000",
+          "default": "https://debbuger-agent.onrender.com",
           "description": "Base URL of the Debugger Agent FastAPI backend"
         },
         "debugAgent.autoSaveSession": {
