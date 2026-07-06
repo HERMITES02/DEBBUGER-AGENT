@@ -52,17 +52,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Debug Agent API", version="0.1.0", lifespan=lifespan)
 
+from fastapi.responses import JSONResponse
+import traceback
+
 _cors_raw = os.getenv("CORS_ORIGINS") or os.getenv("CORS_ORIGIN") or "http://localhost:3000"
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 print(f"[startup] CORS origins loaded: {_cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc: Exception):
+    print(f"[error] Unhandled exception on {request.url.path}: {exc}")
+    traceback.print_exc()
+    origin = request.headers.get("origin") or "*"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Server Error: {str(exc)}"},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 app.include_router(auth_router)
 
