@@ -10,6 +10,11 @@ export interface DebugResult {
   tests?: string[]
   confidence?: number
   session_id?: string
+  user_message?: string
+  code?: string
+  language?: string
+  images?: string[]
+  request?: any
 }
 
 // ── set this to false to use real backend ───────────────────────────────
