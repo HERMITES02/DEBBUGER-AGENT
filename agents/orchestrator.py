@@ -207,9 +207,14 @@ async def call_router_node(state: AgentState) -> AgentState:
     code_analysis   = None
     context_summary = ""
 
-    # Build router URL — Render's fromService gives bare hostname, local dev gives full URL
+    # Build router URL — Render's fromService gives bare hostname/hostport, local dev gives full URL
     _router_raw = os.getenv("ROUTER_SERVICE_URL", "http://localhost:8001")
-    _router_base = _router_raw if "://" in _router_raw else f"https://{_router_raw}"
+    if "://" in _router_raw:
+        _router_base = _router_raw
+    elif "localhost" in _router_raw or "127.0.0.1" in _router_raw or ":" in _router_raw:
+        _router_base = f"http://{_router_raw}"
+    else:
+        _router_base = f"https://{_router_raw}"
 
     async with httpx.AsyncClient() as client:
         try:
