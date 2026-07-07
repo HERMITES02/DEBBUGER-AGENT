@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import DiffViewer from "./DiffViewer"
 
 const TAGLINES = [
@@ -39,6 +39,15 @@ export default function ChatInput({ appState, code: parentCode, description: par
   const [visible, setVisible] = useState(true)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+      textareaRef.current.style.height = `${Math.max(180, textareaRef.current.scrollHeight)}px`
+    }
+  }, [code])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -363,8 +372,8 @@ export default function ChatInput({ appState, code: parentCode, description: par
                       </div>
                       <div style={{
                         backgroundColor: "#1e1e1e", border: "1px solid #2d2d2d",
-                        borderRadius: "6px", overflow: "hidden", display: "flex",
-                        maxHeight: "220px"
+                        borderRadius: "6px", overflowY: "auto", overflowX: "hidden", display: "flex",
+                        maxHeight: "220px", scrollbarWidth: "thin" as const
                       }}>
                         <div style={{
                           color: "#5a5a5a", fontSize: "12px", padding: "10px 8px",
@@ -378,7 +387,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
                           flex: 1, margin: 0, padding: "10px 14px",
                           fontSize: "13px", color: "#d4d4d4",
                           lineHeight: "1.6", whiteSpace: "pre-wrap", wordBreak: "break-word",
-                          overflowY: "auto", scrollbarWidth: "thin" as const
+                          overflow: "visible"
                         }}>{result.code || result.request?.code || parentCode || code}</pre>
                       </div>
                     </div>
@@ -508,6 +517,7 @@ export default function ChatInput({ appState, code: parentCode, description: par
                   ))}
                 </div>
                 <textarea
+                  ref={textareaRef}
                   value={code}
                   onChange={e => setCode(e.target.value)}
                   placeholder={"# paste your code here\n# the agent will analyze it for bugs"}
