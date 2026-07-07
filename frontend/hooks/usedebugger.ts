@@ -227,6 +227,24 @@ const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: st
   })
 
   if (!user) {
+    try {
+      const unsavedData = {
+        session_id: sidToUse,
+        root_cause: data.root_cause || "",
+        patch: data.patch || "",
+        explanation: data.explanation || "",
+        tests: data.tests || [],
+        confidence: data.confidence || 0.0,
+        code: code || "",
+        language: language || "python",
+        user_message: overrideDesc || description || "",
+        images: images || [],
+      }
+      localStorage.setItem("debugger_unsaved_session", JSON.stringify(unsavedData))
+    } catch (e) {
+      console.error("[handleResult] Failed to store anonymous session:", e)
+    }
+
     setTimeout(() => {
       setShowLoginPrompt(true)
     }, 1000)
@@ -303,14 +321,6 @@ const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: st
     setUser(u)
     localStorage.setItem("debugger_user", JSON.stringify(u))
     setShowAuth(false)
-    // Load session history
-    apiGetSessions().then(incoming => {
-  setSessions(prev => {
-    const existingIds = new Set(prev.map(s => s.id))
-    const merged = [...prev, ...incoming.filter(s => !existingIds.has(s.id))]
-    return merged.slice(0, 50)
-  })
-})
   }
 
   const handleLogout = () => {
@@ -320,23 +330,45 @@ const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: st
     handleNewSession()
   }
 
-useEffect(() => {
-  if (user?.token) {
-    console.log("[sessions] fetching for user:", user.email)
-    apiGetSessions()
-      .then(incoming => {
-        console.log("[sessions] received:", incoming)
-        // Merge with existing local sessions instead of replacing
-        setSessions(prev => {
-          const incomingIds = new Set(incoming.map(s => s.id))
-          // Keep local sessions not yet on server + all server sessions
-          const localOnly = prev.filter(s => !incomingIds.has(s.id))
-          return [...localOnly, ...incoming].slice(0, 50)
-        })
-      })
-      .catch(e => console.error("[sessions] error:", e))
-  }
-}, [user?.token])
+  useEffect(() => {
+    if (user?.token) {
+      console.log("[sessions] syncing & fetching for user:", user.email)
+      const syncAndLoad = async () => {
+        const unsavedRaw = localStorage.getItem("debugger_unsaved_session")
+        if (unsavedRaw) {
+          try {
+            const unsavedData = JSON.parse(unsavedRaw)
+            console.log("[sessions] syncing anonymous session to server:", unsavedData.session_id)
+            await fetch(`${API_BASE}/sessions/save`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${user.token}`,
+              },
+              body: JSON.stringify(unsavedData),
+            })
+            localStorage.removeItem("debugger_unsaved_session")
+            console.log("[sessions] anonymous session successfully synced to database!")
+          } catch (err) {
+            console.error("[sessions] failed to sync anonymous session:", err)
+          }
+        }
+
+        try {
+          const incoming = await apiGetSessions()
+          console.log("[sessions] received:", incoming)
+          setSessions(prev => {
+            const incomingIds = new Set(incoming.map(s => s.id))
+            const localOnly = prev.filter(s => !incomingIds.has(s.id))
+            return [...localOnly, ...incoming].slice(0, 50)
+          })
+        } catch (e) {
+          console.error("[sessions] error:", e)
+        }
+      }
+      syncAndLoad()
+    }
+  }, [user?.token])
   
   
   return {
