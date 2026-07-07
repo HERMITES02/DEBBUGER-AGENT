@@ -39,6 +39,7 @@ async def save_session(user_id: str, session_id: str, result: dict, request: dic
                               ),
                 code=         request.get("code"),
                 user_message= request.get("user_message"),
+                images=       json.dumps(request.get("images", [])),
             )
             db.add(s)
             await db.commit()
@@ -65,6 +66,7 @@ async def get_user_sessions(user_id: str, limit: int = 50) -> list[dict]:
                 "timestamp":  s.timestamp,
                 "confidence": s.confidence,
                 "language":   s.language,
+                "images":     json.loads(s.images or "[]"),
             }
             for s in sessions
         ]
@@ -83,6 +85,7 @@ async def get_session_result(session_id: str) -> dict | None:
             "confidence":  s.confidence,
             "language":    s.language,
             "timestamp":   s.timestamp,
+            "images":      json.loads(s.images or "[]"),
             "request": {
                 "code":         s.code,
                 "user_message": s.user_message,

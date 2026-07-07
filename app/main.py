@@ -4,6 +4,7 @@ from typing import Optional
 from tools.redis_publisher import close_redis, get_redis
 from contextlib import asynccontextmanager
 from app.auth.routes import router as auth_router
+from app.images.routes import images_router as images_router
 from app.auth.models import init_db
 from app.auth.jwt import get_current_user
 from app.memory.session_store import save_session, get_user_context
@@ -30,6 +31,7 @@ class SaveSessionRequest(BaseModel):
     code:        str = ""
     language:    str = "python"
     user_message:str = ""
+    images:      list[str] = []
 
 
 @asynccontextmanager
@@ -83,6 +85,7 @@ async def global_exception_handler(request, exc: Exception):
     )
 
 app.include_router(auth_router)
+app.include_router(images_router)
 
 @app.get("/health")
 async def health():
@@ -136,6 +139,11 @@ async def debug(
         explanation= result.get("patch_explanation") or "",
         tests=       [result["test_code"]] if result.get("test_code") else [],
         confidence=  confidence,
+        images=      req.images,
+        user_message=req.user_message,
+        code=        req.code,
+        language=    req.language,
+        request=     {"code": req.code, "user_message": req.user_message},
     )
 
     # Save session under this user for future memory
@@ -175,6 +183,7 @@ async def save_current_session(
             "code":         req.code,
             "language":     req.language,
             "user_message": req.user_message,
+            "images":       req.images,
         }
     )
     return {"saved": True, "session_id": req.session_id}
@@ -282,6 +291,7 @@ async def ws_events(ws: WebSocket, session_id: str):
     r = aioredis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
     pubsub = r.pubsub()
     await pubsub.subscribe(f"agent:events:{session_id}")
+    await ws.send_json({"type": "ready", "agent_id": "system", "payload": "subscribed"})
 
     try:
         async for message in pubsub.listen():

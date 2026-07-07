@@ -66,13 +66,17 @@ export default function AgentFlowChart({ sessionId, isRunning, onReady }: AgentF
     ws.onopen = () => {
       setConnected(true)
       console.log(`[AgentFlowChart] connected to session ${sessionId}`)
-      // Signal to parent that WebSocket is ready — safe to call API now
-      onReady?.()
     }
 
     ws.onmessage = (event) => {
       try {
         const data: AgentEvent = JSON.parse(event.data)
+
+        if (data.type === "ready") {
+          console.log("[AgentFlowChart] redis subscribed — triggering start")
+          onReady?.()
+          return
+        }
 
         if (data.type === "done") {
           setConnected(false)

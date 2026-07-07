@@ -2,6 +2,7 @@ import sys
 import asyncio
 import json
 import os
+import base64
 from pathlib import Path
 
 
@@ -50,10 +51,36 @@ still return the JSON with null values and
 confidence below 0.5. Never guess.
 """
 
+def clean_image_input(img_str: str) -> tuple[str, str]:
+    """Returns (raw_base64_string, media_type)"""
+    if img_str.startswith("http://") or img_str.startswith("https://"):
+        import urllib.request
+        req = urllib.request.Request(img_str, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as resp:
+            content_type = resp.headers.get('Content-Type', 'image/png').split(';')[0]
+            if not content_type.startswith("image/"):
+                content_type = "image/png"
+            raw_bytes = resp.read()
+            return base64.b64encode(raw_bytes).decode('utf-8'), content_type
+    elif img_str.startswith("data:"):
+        header, encoded = img_str.split(",", 1)
+        mime = "image/png"
+        if ";" in header and ":" in header:
+            mime = header.split(";")[0].split(":")[1]
+        if not mime.startswith("image/"):
+            mime = "image/png"
+        return encoded, mime
+    else:
+        return img_str, "image/png"
+
 def extract_from_image(image_base64: str) -> dict:
     # 1 — validate image is not empty
-    if not image_base64 or len(image_base64) < 100:
+    if not image_base64 or len(image_base64) < 10:
         raise ValueError("Image base64 string is too short or empty")
+
+    raw_b64, media_type = clean_image_input(image_base64)
+    if not raw_b64 or len(raw_b64) < 10:
+        raise ValueError("Cleaned image base64 is empty")
 
     try:
         response = client.messages.create(
@@ -68,8 +95,8 @@ def extract_from_image(image_base64: str) -> dict:
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": "image/png",
-                                "data": image_base64
+                                "media_type": media_type,
+                                "data": raw_b64
                             }
                         },
                         {

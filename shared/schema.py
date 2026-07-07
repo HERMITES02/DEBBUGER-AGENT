@@ -29,6 +29,11 @@ class DebugResult(BaseModel):
     explanation:  str
     tests:        list[str] = []
     confidence:   float     = 1.0
+    images:       list[str] = []
+    user_message: Optional[str] = None
+    code:         Optional[str] = None
+    language:     Optional[str] = None
+    request:      Optional[dict] = None
 
 class RouterResult(BaseModel):
     session_id:          str | None

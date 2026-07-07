@@ -30,6 +30,7 @@ class SessionRecord(Base):
     tests        = Column(Text)   # JSON string
     code         = Column(Text)
     user_message = Column(Text)
+    images       = Column(Text, default="[]")  # JSON string of image URLs
 
 class User(Base):
     __tablename__ = "users"
@@ -44,7 +45,11 @@ class User(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("[startup] Database tables created")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE sessions ADD COLUMN images TEXT DEFAULT '[]'")
+        except Exception:
+            pass
+    print("[startup] Database tables created & migrated")
 
 @asynccontextmanager
 async def get_db():

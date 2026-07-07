@@ -21,6 +21,7 @@ ruff==0.4.5
 redis==5.0.4
 e2b-code-interpreter==0.0.10
 tavily-python==0.3.9
+cloudinary==1.38.0
 
 # ── Auth ──────────────────────────────────────────────
 python-jose[cryptography]==3.3.0

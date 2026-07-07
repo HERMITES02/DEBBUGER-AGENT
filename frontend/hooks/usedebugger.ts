@@ -105,7 +105,7 @@ export async function apiDebug(
       user_message: userMessage,
       code: code || null,
       language,
-      images: images.map(img => img.includes(",") ? img.split(",")[1] : img),
+      images: images,
       session_id: sessionId,
     }),
   })
@@ -187,6 +187,11 @@ useEffect(() => {
 
   // usedebugger.ts — deduplicate when setting sessions
 const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: string) => {
+  if (!data.images) data.images = images
+  if (!data.user_message) data.user_message = overrideDesc || description
+  if (!data.code) data.code = code
+  if (!data.language) data.language = language
+  if (!data.request) data.request = { code: data.code || code, user_message: data.user_message || description }
   setResult(data)
   setAppState("done")
 
@@ -236,13 +241,18 @@ const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: st
     setCode(data.request?.code || "")
     setDescription(data.request?.user_message || "")
     setLanguage(data.language || "python")
-    setImages([])
+    setImages(data.images || [])
     setResult({
-      root_cause:  data.root_cause,
-      patch:       data.patch,
-      explanation: data.explanation,
-      tests:       data.tests,
-      confidence:  data.confidence,
+      root_cause:   data.root_cause,
+      patch:        data.patch,
+      explanation:  data.explanation,
+      tests:        data.tests,
+      confidence:   data.confidence,
+      images:       data.images || [],
+      user_message: data.request?.user_message || data.user_message || "",
+      code:         data.request?.code || data.code || "",
+      language:     data.language || "python",
+      request:      data.request || { code: data.code, user_message: data.user_message },
     })
     setAppState("done")
   } catch (e) {
@@ -267,6 +277,7 @@ const handleResult = (data: DebugResult, overrideSid?: string, overrideDesc?: st
           code:         code                || "",
           language:     language            || "python",
           user_message: description         || "",
+          images:       images              || [],
         }),
       })
       console.log("[handleNewSession] session saved before clearing")
